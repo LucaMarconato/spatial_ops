@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple
+from typing import List
 
 
 def static_vars(**kwargs):
@@ -84,8 +84,21 @@ def get_processed_data_folder() -> str:
     return path
 
 
+def get_results_folder() -> str:
+    root = get_data_folder()
+    path = os.path.join(root, 'stegle_processed/results')
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_pickles_folder() -> str:
+    path = os.path.join(get_processed_data_folder(), 'pickles')
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_region_features_folder() -> str:
-    path = os.path.join(get_processed_data_folder(), 'region_features')
+    path = os.path.join(get_pickles_folder(), 'region_features')
     os.makedirs(path, exist_ok=True)
     return path
 

@@ -1,19 +1,18 @@
+import os
+from typing import List
+
+import matplotlib.pyplot as plt
+import numpy
+import skimage
+import skimage.data
+import skimage.io
+import sklearn
+import sklearn.decomposition
+import vigra
 from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 
 from spatial_ops.folders import get_masks_folder, get_ome_folder
-
-import vigra
-import os
-
-import skimage
-import skimage.io
-import skimage.data
-import numpy
-import sklearn
-import sklearn.decomposition
-import matplotlib.pyplot as plt
-from typing import List
 
 mask_folder = get_masks_folder()
 img_folder = get_ome_folder()
@@ -116,11 +115,11 @@ def match(image_names: List[str]) -> List[int]:
 
 
 multiple_images = [
-'BaselTMA_SP41_33.475kx17.665ky_8500x5000_13_20170905_11_2_X2Y8_159_a0_full.tiff'
-# 'BaselTMA_SP41_25.475kx12.665ky_8000x8500_3_20170905_83_218_X10Y4_193_a0_full.tiff',
-# 'BaselTMA_SP41_33.475kx12.66ky_8500x8500_2_20170905_83_218_X10Y4_244_a0_full.tiff',
-# 'BaselTMA_SP41_25.475kx12.665ky_8000x8500_3_20170905_75_218_X9Y4_185_a0_full.tiff',
-# 'BaselTMA_SP41_33.475kx12.66ky_8500x8500_2_20170905_75_218_X9Y4_240_a0_full.tiff'
+    'BaselTMA_SP41_33.475kx17.665ky_8500x5000_13_20170905_11_2_X2Y8_159_a0_full.tiff'
+    # 'BaselTMA_SP41_25.475kx12.665ky_8000x8500_3_20170905_83_218_X10Y4_193_a0_full.tiff',
+    # 'BaselTMA_SP41_33.475kx12.66ky_8500x8500_2_20170905_83_218_X10Y4_244_a0_full.tiff',
+    # 'BaselTMA_SP41_25.475kx12.665ky_8000x8500_3_20170905_75_218_X9Y4_185_a0_full.tiff',
+    # 'BaselTMA_SP41_33.475kx12.66ky_8500x8500_2_20170905_75_218_X9Y4_240_a0_full.tiff'
 ]
 
 indexes = match(multiple_images)

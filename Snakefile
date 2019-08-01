@@ -1,6 +1,3 @@
-from spatial_ops.folders import single_cell_data_path
-from sandbox.convert_csv_to_sqlite3_single_cell import database_single_cell, convert_csv_to_sqlite3_single_cell
-
 rule all:
     input:
          # "snakemake/csv_eda"
@@ -32,17 +29,7 @@ rule ome_eda:
          mkdir -p snakemake; touch snakemake/ome_eda
          """
 
-rule csv_to_sqlite3_single_cell:
-    input:
-         single_cell_data_path
-    output:
-          database_single_cell
-    run:
-        convert_csv_to_sqlite3_single_cell()
-
 rule test_vae:
-    input:
-         database_single_cell
     output:
           "snakemake/test_vae"
     shell:

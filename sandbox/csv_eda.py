@@ -1,16 +1,15 @@
-import pandas as pd
-import numpy as np
 import os
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from colorama import init, Fore
+
+from spatial_ops.data import basel_patient_data, zurich_patient_data, staining_data, whole_image_data
 from spatial_ops.folders import basel_patient_data_path, \
     zurich_patient_data_path, \
     staining_data_path, \
     whole_image_data_path
-from sandbox.data_connector import basel_patient_data, \
-    zurich_patient_data, \
-    staining_data, \
-    whole_image_data
 
 if __name__ == '__main__':
     init(autoreset=True)
