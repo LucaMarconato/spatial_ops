@@ -11,7 +11,7 @@ dependencies:
   - flake8
   - coverage
   - python >=3.6
-  - numpys
+  - numpy
   - pip
   - scikit-learn
   - scikit-image
