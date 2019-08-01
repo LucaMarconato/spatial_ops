@@ -7,7 +7,7 @@ dependencies:
   - make
   - sphinx 
   - sphinx_rtd_theme
-  - sphinx_gallery
+  - sphinx-gallery
   - pytest
   - flake8
   - coverage

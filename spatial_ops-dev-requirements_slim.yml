@@ -24,7 +24,7 @@ dependencies:
 #  - snakemake
   - pip:
     - sphinx_rtd_theme
-    - sphinx_gallery
+    - sphinx-gallery
     - scikit-image
     - scikit-learn
     - pandas
