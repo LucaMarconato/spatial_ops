@@ -33,7 +33,7 @@ Running a first exploratory data analysis
 ================
 First, install the dependencies with
 
-``conda env create -f spatial-dev-requirements.yml``
+``conda env create -f spatial_ops-dev-requirements.yml``
 
 and activate the corresponding conda environment
 
