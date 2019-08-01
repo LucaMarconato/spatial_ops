@@ -1,0 +1,27 @@
+name: spatial_ops-dev-requirements
+
+channels:
+  - anaconda
+  - conda-forge
+dependencies:
+  - make
+  - sphinx 
+  - sphinx_rtd_theme
+  - pytest
+  - flake8
+  - coverage
+  - python >=3.6
+  - numpy
+  - pip
+  #- scikit-learn
+  #- scikit-image
+  #- vigra
+  - matplotlib
+  #- pyqtgraph
+  #- pandas
+  - colorama
+  - progressbar2
+#  - snakemake
+  - pip:
+    - git+https://github.com/DerThorsten/layer_viewer.git
+   

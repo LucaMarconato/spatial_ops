@@ -1,2 +1,2 @@
 conda:
-  file: spatial_ops-dev-requirements.yml
+  file: spatial_ops-dev-requirements_slimyml
