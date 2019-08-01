@@ -39,16 +39,11 @@ and activate the corresponding conda environment
 
 ``conda activate spatial-dev``
 
-
-Currently, there is a problem in the DFKZ cluster which prevents Snakemake to be installed automatically from the ``.yml`` file, so in any machine you also need to run (from within the spatial-dev environment) the following:
-
-``conda install -c bioconda snakemake``
-
 Now, if you are in DKFZ cluster the data is already present (in ``/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data``) so you can run the exploratory data analysis simply with the command
 
 ``snakemake``
 
-If you are not in the cluster you first need to update the code in ``folders.py`` by inserting the path of the root folder of the data in your machine. In the root folder the data must be organized into this directory tree:
+If you are not in the cluster you first need to update the code in ``folders.py`` by inserting the path of the root folder of the data in your machine (note that the data is not publically available). In the root folder the data must be organized into this directory tree:
 
 ::
 
