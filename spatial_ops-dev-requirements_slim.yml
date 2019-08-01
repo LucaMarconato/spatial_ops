@@ -6,7 +6,7 @@ channels:
 dependencies:
   - make
   - sphinx 
-  - sphinx_rtd_theme
+  #- sphinx_rtd_theme
   - pytest
   - flake8
   - coverage
@@ -23,6 +23,8 @@ dependencies:
   - progressbar2
 #  - snakemake
   - pip:
+    - sphinx_rtd_theme
+    - sphinx_gallery
     - scikit-image
     - scikit-learn
     - pandas
