@@ -21,7 +21,7 @@ dependencies:
   #- pandas
   - colorama
   - progressbar2
-#  - snakemake
+  #- snakemake
   - pip:
     - sphinx_rtd_theme
     - sphinx-gallery
@@ -29,5 +29,6 @@ dependencies:
     - scikit-learn
     - pandas
     - pyqtgraph
+    - snakemake
+    - click
     - git+https://github.com/DerThorsten/layer_viewer.git
-   

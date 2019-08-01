@@ -1,12 +1,10 @@
 import pandas as pd
 import numpy as np
 import os
-import re
 import matplotlib.pyplot as plt
 from colorama import init, Fore
-from sandbox.folders import basel_patient_data_path, \
+from spatial_ops.folders import basel_patient_data_path, \
     zurich_patient_data_path, \
-    single_cell_data_path, \
     staining_data_path, \
     whole_image_data_path
 from sandbox.data_connector import basel_patient_data, \
@@ -126,7 +124,7 @@ if __name__ == '__main__':
     # graphical_nan_inspection(single_cell_data, 'single cell data', single_cell_data_path)
     # print('place_last')
 
-    single_cell_reduced = pd.read_csv(single_cell_data_path, nrows=2)
-    columns = single_cell_reduced.columns.values
-    columns_without_channels = set(map(lambda x: re.sub(r'(.*?)_c[0-9]{1,2}', r'\1_cXX', x), columns))
-    print(sorted(columns_without_channels))
+    # single_cell_reduced = pd.read_csv(single_cell_data_path, nrows=2)
+    # columns = single_cell_reduced.columns.values
+    # columns_without_channels = set(map(lambda x: re.sub(r'(.*?)_c[0-9]{1,2}', r'\1_cXX', x), columns))
+    # print(sorted(columns_without_channels))

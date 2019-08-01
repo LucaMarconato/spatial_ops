@@ -6,8 +6,8 @@ import progressbar
 # single_cell_data_path = '/Users/macbook/temp/test.csv'
 # database_single_cell = '/Users/macbook/temp/test_processed.db'
 
-from sandbox.folders import single_cell_data_path
-from sandbox.data_connector import single_cell_data_connection
+from spatial_ops.folders import single_cell_data_path
+# from sandbox.data_connector import single_cell_data_connection
 
 
 def convert_csv_to_sqlite3_single_cell():

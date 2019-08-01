@@ -3,6 +3,7 @@ name: spatial_ops-dev-requirements
 channels:
   - anaconda
   - conda-forge
+  - bioconda
 dependencies:
   - make
   - sphinx 
@@ -22,8 +23,7 @@ dependencies:
   - pandas
   - colorama
   - progressbar2
-
-#  - snakemake
+  - snakemake
+  - click
   - pip:
     - git+https://github.com/DerThorsten/layer_viewer.git
-   

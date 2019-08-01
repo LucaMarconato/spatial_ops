@@ -1,13 +1,7 @@
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
-import numpy as np
-import pyqtgraph.console
-
-from layer_viewer import dcolors
 from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 
-from sandbox.folders import get_masks_folder, get_ome_folder
+from spatial_ops.folders import get_masks_folder, get_ome_folder
 
 import vigra
 import os
@@ -16,7 +10,6 @@ import skimage
 import skimage.io
 import skimage.data
 import numpy
-import pylab
 import sklearn
 import sklearn.decomposition
 import matplotlib.pyplot as plt
