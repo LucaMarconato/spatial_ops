@@ -9,8 +9,6 @@ spatial_ops
 .. image:: https://img.shields.io/travis/DerThorsten/spatial_ops.svg
         :target: https://travis-ci.org/DerThorsten/spatial_ops
 
-.. image:: https://travis-ci.org/DerThorsten/spatial_ops.svg?branch=master
-    :target: https://travis-ci.org/DerThorsten/spatial_ops
 
 .. image:: https://circleci.com/gh/DerThorsten/spatial_ops/tree/master.svg?style=svg
     :target: https://circleci.com/gh/DerThorsten/spatial_ops/tree/master
