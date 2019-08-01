@@ -5,12 +5,28 @@ channels:
   - conda-forge
 dependencies:
   - make
-  - python >=3.6
-  - pytest
-  - coverage
-  - pip
+  - cmake >=3.1
   - sphinx 
+  - breathe
+  - doxygen
   - sphinx_rtd_theme
-  - sphinxcontrib-apidoc 
-  - sphinx-gallery 
-  - flake8
+  - pytest
+  - xtl
+  - xtensor
+  - python >=3.6
+  - numpy
+  - xtensor-python
+  - pybind11
+  - pip
+  - scikit-learn
+  - scikit-image
+  - vigra
+  - matplotlib
+  - pyqtgraph
+  - pandas
+  - colorama
+  - progressbar2
+#  - snakemake
+  - pip:
+    - git+https://github.com/DerThorsten/layer_viewer.git
+   
