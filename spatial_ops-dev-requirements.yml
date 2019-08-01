@@ -25,5 +25,6 @@ dependencies:
   - progressbar2
   - snakemake
   - click
+  - umap-learn
   - pip:
     - git+https://github.com/DerThorsten/layer_viewer.git

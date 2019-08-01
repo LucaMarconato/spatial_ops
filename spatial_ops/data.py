@@ -66,8 +66,7 @@ class RegionFeatures:
         self.mean = feature_accumulator['Mean']
         self.sum = feature_accumulator['Sum']
         self.variance = feature_accumulator['Variance']
-        self.center_x = feature_accumulator['RegionCenter'][:, 0]
-        self.center_y = feature_accumulator['RegionCenter'][:, 1]
+        self.center = feature_accumulator['RegionCenter']
 
 
 class Plate:
@@ -109,7 +108,6 @@ class Plate:
         return region_features
 
     def generate_region_features(self, region_features_path: str):
-        # print('generating and pickling region features')
         ome = self.get_ome()
         masks = self.get_masks()
 
