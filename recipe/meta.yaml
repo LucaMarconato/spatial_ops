@@ -1,0 +1,49 @@
+
+{% set data = load_setup_py_data() %}
+
+package:
+  name: spatial_ops
+  
+  version: {{ data['version'] }}
+  
+source:
+  path: ../
+
+
+build:
+  noarch: python
+  number: 0
+  
+  script: "{{ PYTHON }} -m pip install --no-deps --ignore-installed ."
+  
+requirements:
+  host:
+    - python
+  run:
+    - python >=3.6
+    # dependencies are defined in setup.py
+    
+    {% for dep in data['install_requires'] %}
+    - {{ dep.lower() }}
+    {% endfor %}
+    
+test:
+  imports:
+    - spatial_ops
+
+about:
+  home: https://github.com/DerThorsten/spatial_ops
+  license: MIT
+  license_family: MIT
+  
+  license_file: ../LICENSE.txt
+  summary: 'spatial ops is libraray for spatial transcritomics'
+  description: 'spatial ops is libraray for spatial transcritomics'
+  documentation_url: https://readthedocs.org/projects/spatial_ops/
+  dev_url: https://github.com/DerThorsten/spatial_ops
+
+extra:
+  recipe-maintainers:
+    - Thorsten Beier
+
+
