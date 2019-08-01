@@ -16,7 +16,7 @@ Integrative analysis of single cell imaging mass citometry data of breast cancer
 .. image:: https://dev.azure.com/derthorstenbeier/spatial_ops/_apis/build/status/DerThorsten.spatial_ops?branchName=master
     :target: https://dev.azure.com/derthorstenbeier/spatial_ops/_build/latest?definitionId=1&branchName=master
 
-We perform an integrative analysis of multiplexed proteomics spatial data from breast cancer tissues using deep convolutional variational autoencoders. 
+We perform an integrative analysis of multiplexed proteomics single cell spatial data from breast cancer tissues using deep convolutional variational autoencoders. 
 
 Features
 --------
