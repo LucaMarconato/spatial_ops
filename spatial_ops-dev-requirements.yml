@@ -8,6 +8,8 @@ dependencies:
   - sphinx 
   - sphinx_rtd_theme
   - pytest
+  - flake8
+  - coverage
   - python >=3.6
   - numpys
   - pip
