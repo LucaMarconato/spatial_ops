@@ -101,12 +101,15 @@ def inspect_image(item: int):
     viewer.show()
     layer = MultiChannelImageLayer(name='img', data=img[...])
     viewer.addLayer(layer=layer)
+    layer.ctrl_widget().channelSelector.setValue(47)
 
     layer = MultiChannelImageLayer(name='PCA-IMG', data=Y[...])
     viewer.addLayer(layer=layer)
+    layer.ctrl_widget().toggle_eye.setState(False)
 
     layer = ObjectLayer(name='mask', data=mask)
     viewer.addLayer(layer=layer)
+    layer.ctrl_widget().bar.set_fraction(0.2)
 
 
 def match(image_names: List[str]) -> List[int]:

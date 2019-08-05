@@ -26,5 +26,7 @@ dependencies:
   - snakemake
   - click
   - umap-learn
+  - seaborn
+  - h5py
   - pip:
     - git+https://github.com/DerThorsten/layer_viewer.git
