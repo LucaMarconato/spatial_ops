@@ -29,4 +29,4 @@ dependencies:
   - seaborn
   - h5py
   - pip:
-    - git+https://github.com/DerThorsten/layer_viewer.git
+    - git+https://github.com/LucaMarconato/layer_viewer.git

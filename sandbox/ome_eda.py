@@ -13,6 +13,7 @@ from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 
 from spatial_ops.folders import get_masks_folder, get_ome_folder
+from sandbox.umap_eda import PlateUMAPLoader
 
 mask_folder = get_masks_folder()
 img_folder = get_ome_folder()
@@ -83,18 +84,18 @@ def inspect_image(item: int):
     img = numpy.require(img, requirements=['C'])
     X = img.reshape([-1, n_channels])
     maskedX = X[flat_mask, :]
-    dim_red_alg = sklearn.decomposition.PCA(n_components=n_components)
-    dim_red_alg.fit(numpy.sqrt(X))
-    Y = dim_red_alg.transform(X)
-    reshape = tuple(shape) + (n_components,)
-    Y = Y.reshape(reshape)
+    # dim_red_alg = sklearn.decomposition.PCA(n_components=n_components)
+    # dim_red_alg.fit(numpy.sqrt(X))
+    # Y = dim_red_alg.transform(X)
+    # reshape = tuple(shape) + (n_components,)
+    # Y = Y.reshape(reshape)
 
     print(f"Y {img.shape}")
 
-    for c in range(3):
-        Yc = Y[..., c]
-        Yc -= Yc.min()
-        Yc /= Yc.max()
+    # for c in range(3):
+    #     Yc = Y[..., c]
+    #     Yc -= Yc.min()
+    #     Yc /= Yc.max()
 
     viewer = LayerViewerWidget()
     viewer.setWindowTitle(f'{item}: {dataset[item][0]}')
@@ -102,10 +103,15 @@ def inspect_image(item: int):
     layer = MultiChannelImageLayer(name='img', data=img[...])
     viewer.addLayer(layer=layer)
     layer.ctrl_widget().channelSelector.setValue(47)
+    axes = viewer.axes()
+    axes.scatter(list(range(10)), list(range(10)))
+    viewer.draw_plot_canvas()
 
-    layer = MultiChannelImageLayer(name='PCA-IMG', data=Y[...])
-    viewer.addLayer(layer=layer)
-    layer.ctrl_widget().toggle_eye.setState(False)
+    # axes.show()
+
+    # layer = MultiChannelImageLayer(name='PCA-IMG', data=Y[...])
+    # viewer.addLayer(layer=layer)
+    # layer.ctrl_widget().toggle_eye.setState(False)
 
     layer = ObjectLayer(name='mask', data=mask)
     viewer.addLayer(layer=layer)

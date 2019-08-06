@@ -27,4 +27,4 @@ dependencies:
     - umap-learn
     - seaborn
     - h5py
-    - git+https://github.com/DerThorsten/layer_viewer.git
+    - git+https://github.com/LucaMarconato/layer_viewer.git
