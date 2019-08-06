@@ -1,6 +1,7 @@
 import pickle
 import h5py
 import os
+import numpy as np
 from abc import ABC, abstractmethod
 
 from spatial_ops.folders import get_pickle_lazy_loader_data_path, hdf5_lazy_loader_data_path
@@ -24,6 +25,10 @@ class LazyLoader(ABC):
 
     @abstractmethod
     def precompute(self):
+        pass
+
+    @abstractmethod
+    def delete_precomputation(self):
         pass
 
     @abstractmethod
@@ -70,13 +75,15 @@ class PickleLazyLoader(LazyLoader, ABC):
         pickle_path = self.get_pickle_path()
         return os.path.isfile(pickle_path)
 
-
-def open_the_hdf5_file(cls):
-    cls._open_the_hdf5_file()
-    return cls
+    def delete_precomputation(self):
+        os.remove(self.get_pickle_path())
 
 
-@open_the_hdf5_file
+if not os.path.isfile(hdf5_lazy_loader_data_path):
+    f = h5py.File(hdf5_lazy_loader_data_path, 'w')
+    f.close()
+
+
 class HDF5LazyLoader(LazyLoader, ABC):
     def _get_resource_id(self) -> str:
         if self.resource_unique_identifier is None:
@@ -85,28 +92,27 @@ class HDF5LazyLoader(LazyLoader, ABC):
                       + '/' + self.resource_unique_identifier
         return resource_id
 
-    @staticmethod
-    def _get_hdf5_file_path():
+    # just for convenience, to have the path ready when deriving the subclass
+    def get_hdf5_file_path(self) -> str:
         return hdf5_lazy_loader_data_path
-
-    @classmethod
-    def _open_the_hdf5_file(cls):
-        print('OPENING THE HDF5 FILE')
-        path = cls._get_hdf5_file_path()
-        if not os.path.isfile(path):
-            f = h5py.File(path, 'w')
-            f.close()
-        cls.f = h5py.File(path, 'r+')
-        print(cls.f)
 
     def get_hdf5_resource_internal_path(self):
         return self._get_resource_id()
 
+    # using a singleton and opening the file only once in r+ mode would lead to better performance, but I will wait
+    # to see if the current performance are bad before implementing it
     def _load_precomputed_data(self):
-        return HDF5LazyLoader.f[self.get_hdf5_resource_internal_path()]
+        with h5py.File(self.get_hdf5_file_path(), 'r') as f:
+            data = np.array(f[self.get_hdf5_resource_internal_path()][...])
+            return data
 
     def _data_already_precomputed(self):
-        return self.get_hdf5_resource_internal_path() in HDF5LazyLoader.f
+        with h5py.File(self.get_hdf5_file_path(), 'r') as f:
+            return self.get_hdf5_resource_internal_path() in f
+
+    def delete_precomputation(self):
+        with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
+            del f[self.get_hdf5_resource_internal_path()]
 
 
 if __name__ == '__main__':
@@ -139,9 +145,12 @@ if __name__ == '__main__':
         def precompute(self):
             p: Patient = self.associated_instance
             data = f'len = {len(p.plates)}'
-            HDF5LazyLoader.f[self.get_hdf5_resource_internal_path()] = data
+            # data = np.zeros((2, 3))
+            with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
+                f[self.get_hdf5_resource_internal_path()] = data
             return data
 
 
     derived_quantity = NumberOfPlatesLoader1(patient, 'example_quantity')
+    # derived_quantity.delete_precomputation()
     print(derived_quantity.load_data())
