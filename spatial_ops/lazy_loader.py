@@ -5,6 +5,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from spatial_ops.folders import get_pickle_lazy_loader_data_path, hdf5_lazy_loader_data_path
+from spatial_ops.unpickler import CustomUnpickler
 
 
 class LazyLoaderAssociatedInstance:
@@ -32,7 +33,7 @@ class LazyLoader(ABC):
         pass
 
     @abstractmethod
-    def _data_already_precomputed(self):
+    def has_data_already_been_precomputed(self):
         pass
 
     @abstractmethod
@@ -43,11 +44,11 @@ class LazyLoader(ABC):
         if self.associated_instance is None:
             raise ValueError(f'self.associated_instance = {self.associated_instance}')
 
-        if not self._data_already_precomputed():
-            print('precomputing')
+        if not self.has_data_already_been_precomputed():
+            # print('precomputing')
             return self.precompute()
         else:
-            print('loading')
+            # print('loading')
             return self._load_precomputed_data()
 
     @abstractmethod
@@ -68,10 +69,10 @@ class PickleLazyLoader(LazyLoader, ABC):
 
     def _load_precomputed_data(self):
         pickle_path = self.get_pickle_path()
-        data = pickle.load(open(pickle_path, 'rb'))
+        data = CustomUnpickler(open(pickle_path, 'rb')).load()
         return data
 
-    def _data_already_precomputed(self):
+    def has_data_already_been_precomputed(self):
         pickle_path = self.get_pickle_path()
         return os.path.isfile(pickle_path)
 
@@ -106,7 +107,7 @@ class HDF5LazyLoader(LazyLoader, ABC):
             data = np.array(f[self.get_hdf5_resource_internal_path()][...])
             return data
 
-    def _data_already_precomputed(self):
+    def has_data_already_been_precomputed(self):
         with h5py.File(self.get_hdf5_file_path(), 'r') as f:
             return self.get_hdf5_resource_internal_path() in f
 

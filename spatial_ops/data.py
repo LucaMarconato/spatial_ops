@@ -27,6 +27,7 @@ from spatial_ops.folders import \
     get_pickles_folder
 from spatial_ops.unpickler import CustomUnpickler
 from spatial_ops.lazy_loader import LazyLoaderAssociatedInstance
+from spatial_ops.lazy_loader import HDF5LazyLoader, PickleLazyLoader
 
 database_single_cell = os.path.join(get_processed_data_folder(),
                                     os.path.basename(single_cell_data_path.replace('.csv', '.db')))
@@ -66,13 +67,37 @@ class Patient(LazyLoaderAssociatedInstance):
 
 
 class RegionFeatures:
-    def __init__(self, feature_accumulator: vigra.analysis.FeatureAccumulator):
-        self.count = feature_accumulator['Count']
-        self.max = feature_accumulator['Maximum']
-        self.mean = feature_accumulator['Mean']
-        self.sum = feature_accumulator['Sum']
-        self.variance = feature_accumulator['Variance']
-        self.center = feature_accumulator['RegionCenter']
+    def __init__(self, count, max, mean, sum, variance, center):
+        self.max = max
+        self.count = count
+        self.mean = mean
+        self.sum = sum
+        self.variance = variance
+        self.center = center
+
+
+class RegionFeaturesLoader(PickleLazyLoader):
+    def __init__(self, associated_instance: LazyLoaderAssociatedInstance, resource_unique_identifier: str):
+        super().__init__(associated_instance, resource_unique_identifier)
+
+    def precompute(self):
+        ome = self.associated_instance.get_ome()
+        masks = self.associated_instance.get_masks()
+
+        feature_accumulator = vigra.analysis.extractRegionFeatures(ome, labels=masks, ignoreLabel=0,
+                                                                   features=['Count', 'Maximum', 'Mean', 'Sum',
+                                                                             'Variance', 'RegionCenter'])
+
+        region_features = RegionFeatures(
+            count=feature_accumulator['Count'],
+            max=feature_accumulator['Maximum'],
+            mean=feature_accumulator['Mean'],
+            sum=feature_accumulator['Sum'],
+            variance=feature_accumulator['Variance'],
+            center=feature_accumulator['RegionCenter'],
+        )
+        pickle.dump(region_features, open(self.get_pickle_path(), 'wb'))
+        return region_features
 
 
 class Plate(LazyLoaderAssociatedInstance):
@@ -93,9 +118,13 @@ class Plate(LazyLoaderAssociatedInstance):
         else:
             raise FileNotFoundError(f'file not found {self.mask_path}')
 
-        self.region_features_path = get_region_features_path_associated_to_ome_path(self.ome_path)
-        if not os.path.isfile(self.region_features_path):
-            self.generate_region_features(self.region_features_path)
+        self.region_features_loader = RegionFeaturesLoader(associated_instance=self,
+                                                           resource_unique_identifier='region_features')
+        if not self.region_features_loader.has_data_already_been_precomputed():
+            self.region_features_loader.precompute()
+        # self.region_features_path = get_region_features_path_associated_to_ome_path(self.ome_path)
+        # if not os.path.isfile(self.region_features_path):
+        #     self.generate_region_features(self.region_features_path)
 
     def get_ome(self) -> np.ndarray:
         ome = skimage.io.imread(self.ome_path)
@@ -109,36 +138,39 @@ class Plate(LazyLoaderAssociatedInstance):
         masks = np.require(masks, requirements=['C'])
         return masks
 
-    def get_region_features(self) -> Dict[str, np.array]:
-        region_features = CustomUnpickler(open(self.region_features_path, 'rb')).load()
-        return region_features
+    def get_region_features(self) -> RegionFeatures:
+        return self.region_features_loader.load_data()
 
-    def generate_region_features(self, region_features_path: str):
-        ome = self.get_ome()
-        masks = self.get_masks()
-
-        # plt.figure()
-        # cmap = matplotlib.colors.ListedColormap(np.random.rand(masks.max() + 1, 3))
-        # cmap.colors[0] = (0, 0, 0)
-        # im = plt.imshow(masks, cmap=cmap)
-        # # plt.colorbar(im)
-        # plt.show()
-
-        # supported_features = vigra.analysis.extractRegionFeatures(ome, labels=masks, features=None,
-        #                                                           ignoreLabel=0).supportedFeatures()
-        # print(f'supported features: {supported_features}')
-        feature_accumulator = vigra.analysis.extractRegionFeatures(ome, labels=masks, ignoreLabel=0,
-                                                                   features=['Count', 'Maximum', 'Mean', 'Sum',
-                                                                             'Variance', 'RegionCenter'])
-
-        region_features = RegionFeatures(feature_accumulator)
-        pickle.dump(region_features, open(region_features_path, 'wb'))
+    # def get_region_features(self) -> Dict[str, np.array]:
+    #     region_features = CustomUnpickler(open(self.region_features_path, 'rb')).load()
+    #     return region_features
+    #
+    # def generate_region_features(self, region_features_path: str):
+    #     ome = self.get_ome()
+    #     masks = self.get_masks()
+    #
+    #     # plt.figure()
+    #     # cmap = matplotlib.colors.ListedColormap(np.random.rand(masks.max() + 1, 3))
+    #     # cmap.colors[0] = (0, 0, 0)
+    #     # im = plt.imshow(masks, cmap=cmap)
+    #     # # plt.colorbar(im)
+    #     # plt.show()
+    #
+    #     # supported_features = vigra.analysis.extractRegionFeatures(ome, labels=masks, features=None,
+    #     #                                                           ignoreLabel=0).supportedFeatures()
+    #     # print(f'supported features: {supported_features}')
+    #     feature_accumulator = vigra.analysis.extractRegionFeatures(ome, labels=masks, ignoreLabel=0,
+    #                                                                features=['Count', 'Maximum', 'Mean', 'Sum',
+    #                                                                          'Variance', 'RegionCenter'])
+    #
+    #     region_features = RegionFeatures(feature_accumulator)
+    #     pickle.dump(region_features, open(region_features_path, 'wb'))
 
     @staticmethod
     def get_mask_for_specific_cell(masks: np.ndarray, region_number: int):
         return (masks == region_number).astype(int)
 
-    def lazy_loader_unique_identifier(self) -> str:
+    def get_lazy_loader_unique_identifier(self) -> str:
         return f'plate_{os.path.basename(self.ome_path)}'
 
 
@@ -151,7 +183,7 @@ def call_the_initializer(cls):
 class JacksonFischerDataset:
     @classmethod
     def initialize(cls):
-        print('initializing JacksonFischerDataset')
+        dont_load_from_pickles = True
         dont_load_from_pickles = False
         pickle_path = os.path.join(get_pickles_folder(), 'JacksonFisherDataset.pickle')
         if os.path.isfile(pickle_path) and not dont_load_from_pickles:
@@ -176,3 +208,9 @@ class JacksonFischerDataset:
                     i += 1
                     bar.update(i)
             pickle.dump(cls.patients, open(pickle_path, 'wb'))
+
+
+if __name__ == '__main__':
+    jfd = JacksonFischerDataset
+    region_features = jfd.patients[0].plates[0].get_region_features()
+    print(region_features.sum)
