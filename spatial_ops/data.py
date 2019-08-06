@@ -8,6 +8,7 @@ import pandas as pd
 import progressbar
 import skimage
 import vigra
+import h5py
 
 from spatial_ops.folders import \
     basel_patient_data_path, \
@@ -25,6 +26,7 @@ from spatial_ops.folders import \
     get_region_features_path_associated_to_ome_path, \
     get_pickles_folder
 from spatial_ops.unpickler import CustomUnpickler
+from spatial_ops.lazy_loader import LazyLoaderAssociatedInstance
 
 database_single_cell = os.path.join(get_processed_data_folder(),
                                     os.path.basename(single_cell_data_path.replace('.csv', '.db')))
@@ -40,8 +42,9 @@ remaining_mask_files = set(get_masks_files())
 PatientSource = Enum('PatientSource', 'basel zurich')
 
 
-class Patient:
+class Patient(LazyLoaderAssociatedInstance):
     def __init__(self, source: PatientSource, pid: int):
+        super().__init__()
         self.plates = []
         self.source = source
         self.pid = pid
@@ -58,6 +61,9 @@ class Patient:
             plate = Plate(filename)
             self.plates.append(plate)
 
+    def get_lazy_loader_unique_identifier(self) -> str:
+        return f'patient_{self.source}_{self.pid}'
+
 
 class RegionFeatures:
     def __init__(self, feature_accumulator: vigra.analysis.FeatureAccumulator):
@@ -69,7 +75,7 @@ class RegionFeatures:
         self.center = feature_accumulator['RegionCenter']
 
 
-class Plate:
+class Plate(LazyLoaderAssociatedInstance):
     def __init__(self, ome_filename: str):
         self.ome_path: str
         self.mask_path: str
@@ -132,6 +138,9 @@ class Plate:
     def get_mask_for_specific_cell(masks: np.ndarray, region_number: int):
         return (masks == region_number).astype(int)
 
+    def lazy_loader_unique_identifier(self) -> str:
+        return f'plate_{os.path.basename(self.ome_path)}'
+
 
 def call_the_initializer(cls):
     cls.initialize()
@@ -142,6 +151,7 @@ def call_the_initializer(cls):
 class JacksonFischerDataset:
     @classmethod
     def initialize(cls):
+        print('initializing JacksonFischerDataset')
         dont_load_from_pickles = False
         pickle_path = os.path.join(get_pickles_folder(), 'JacksonFisherDataset.pickle')
         if os.path.isfile(pickle_path) and not dont_load_from_pickles:

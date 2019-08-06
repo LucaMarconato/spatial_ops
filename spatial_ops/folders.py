@@ -120,3 +120,19 @@ def get_region_features_path_associated_to_ome_path(ome_path: str) -> str:
     region_features_filename = ome_filename.replace('.tiff', '_region_features.pickle')
     path = os.path.join(get_region_features_folder(), region_features_filename)
     return path
+
+
+def get_hdf5_files_folder() -> str:
+    path = get_processed_data_folder()
+    path = os.path.join(path, 'hdf5_files')
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+hdf5_lazy_loader_data_path = os.path.join(get_hdf5_files_folder(), 'lazy_loader_storage.hdf5')
+
+
+def get_pickle_lazy_loader_data_path() -> str:
+    path = os.path.join(get_pickles_folder(), 'lazy_loader_data')
+    os.makedirs(path, exist_ok=True)
+    return path
