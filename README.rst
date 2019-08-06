@@ -37,7 +37,7 @@ If it is the first time you are working with this code you first need to install
 
 If running the code (see later) some dependencies are still missing, this would probably mean that the requirements of the project have been changed since the time you created the environment, so you need to run
 
-``cond env update -f spatial_ops-dev-requirements.yml``
+``conda env update -f spatial_ops-dev-requirements.yml``
 
 Now activate the conda environment
 
