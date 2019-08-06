@@ -18,8 +18,6 @@ class LazyLoaderAssociatedInstance:
 
 
 class LazyLoader(ABC):
-    # while it is not compulsory, it is convenient to implement __init__ in the child class to specify the
-    # associated_instance type, see the examples below for clarification
     def __init__(self, associated_instance: LazyLoaderAssociatedInstance, resource_unique_identifier: str):
         self.associated_instance = associated_instance
         self.resource_unique_identifier = resource_unique_identifier
@@ -46,10 +44,18 @@ class LazyLoader(ABC):
 
         if not self.has_data_already_been_precomputed():
             # print('precomputing')
-            return self.precompute()
+            data = self.precompute()
+            if data is None:
+                raise ValueError(f'data = {data}')
+            self._save_data(data)
+            return data
         else:
             # print('loading')
             return self._load_precomputed_data()
+
+    @abstractmethod
+    def _save_data(self, data):
+        pass
 
     @abstractmethod
     def _get_resource_id(self) -> str:
@@ -78,6 +84,9 @@ class PickleLazyLoader(LazyLoader, ABC):
 
     def delete_precomputation(self):
         os.remove(self.get_pickle_path())
+
+    def _save_data(self, data):
+        pickle.dump(data, open(self.get_pickle_path(), 'wb'))
 
 
 if not os.path.isfile(hdf5_lazy_loader_data_path):
@@ -115,23 +124,23 @@ class HDF5LazyLoader(LazyLoader, ABC):
         with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
             del f[self.get_hdf5_resource_internal_path()]
 
+    def _save_data(self, data):
+        with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
+                f[self.get_hdf5_resource_internal_path()] = data
+
 
 if __name__ == '__main__':
     from spatial_ops.data import JacksonFischerDataset as jfd
     from spatial_ops.data import Patient
 
-    patient = jfd.patients[0]
+    patient = jfd.patients[15]
 
 
     class NumberOfPlatesLoader0(PickleLazyLoader):
-        def __init__(self, associated_instance: Patient, resource_unique_identifier: str):
-            super().__init__(associated_instance, resource_unique_identifier)
-
         def precompute(self):
             # just to enable the autocompletion within the ide
             p: Patient = self.associated_instance
             data = f'len = {len(p.plates)}'
-            pickle.dump(data, open(self.get_pickle_path(), 'wb'))
             return data
 
 
@@ -140,15 +149,10 @@ if __name__ == '__main__':
 
 
     class NumberOfPlatesLoader1(HDF5LazyLoader):
-        def __init__(self, associated_instance: Patient, resource_unique_identifier: str):
-            super().__init__(associated_instance, resource_unique_identifier)
-
         def precompute(self):
             p: Patient = self.associated_instance
             data = f'len = {len(p.plates)}'
             # data = np.zeros((2, 3))
-            with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
-                f[self.get_hdf5_resource_internal_path()] = data
             return data
 
 

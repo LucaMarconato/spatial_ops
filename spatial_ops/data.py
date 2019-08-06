@@ -23,11 +23,9 @@ from spatial_ops.folders import \
     get_ome_folder, \
  \
     get_mask_path_associated_to_ome_path, \
-    get_region_features_path_associated_to_ome_path, \
     get_pickles_folder
 from spatial_ops.unpickler import CustomUnpickler
-from spatial_ops.lazy_loader import LazyLoaderAssociatedInstance
-from spatial_ops.lazy_loader import HDF5LazyLoader, PickleLazyLoader
+from spatial_ops.lazy_loader import LazyLoaderAssociatedInstance, PickleLazyLoader
 
 database_single_cell = os.path.join(get_processed_data_folder(),
                                     os.path.basename(single_cell_data_path.replace('.csv', '.db')))
@@ -77,9 +75,6 @@ class RegionFeatures:
 
 
 class RegionFeaturesLoader(PickleLazyLoader):
-    def __init__(self, associated_instance: LazyLoaderAssociatedInstance, resource_unique_identifier: str):
-        super().__init__(associated_instance, resource_unique_identifier)
-
     def precompute(self):
         ome = self.associated_instance.get_ome()
         masks = self.associated_instance.get_masks()
@@ -96,7 +91,6 @@ class RegionFeaturesLoader(PickleLazyLoader):
             variance=feature_accumulator['Variance'],
             center=feature_accumulator['RegionCenter'],
         )
-        pickle.dump(region_features, open(self.get_pickle_path(), 'wb'))
         return region_features
 
 
