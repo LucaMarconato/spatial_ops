@@ -31,15 +31,19 @@ Current features include:
 
 Running a first exploratory data analysis
 ================
-First, install the dependencies with
+If it is the first time you are working with this code you first need to install the dependencies with
 
 ``conda env create -f spatial_ops-dev-requirements.yml``
 
-and activate the corresponding conda environment
+If running the code (see later) some dependencies are still missing, this would probably mean that the requirements of the project have been changed since the time you created the environment, so you need to run
+
+``cond env update -f spatial_ops-dev-requirements.yml``
+
+Now activate the conda environment
 
 ``conda activate spatial-dev``
 
-Now, if you are in DKFZ cluster the data is already present (in ``/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data``) so you can run the exploratory data analysis simply with the command
+The data is already present in the DKFZ cluster (under ``/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data``) so you login in via `ssh` and with `-X` enabled, then you can run the exploratory data analysis simply with the command
 
 ``snakemake``
 
