@@ -1,97 +1,123 @@
-import os
-from typing import List
+from PyQt5 import QtGui
+from PyQt5.QtCore import pyqtSlot
 
-import matplotlib.pyplot as plt
-import numpy as np
-import skimage
-import skimage.data
-import skimage.io
-import sklearn
-import sklearn.decomposition
-import vigra
 from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 
 from spatial_ops.data import JacksonFischerDataset as jfd
 from sandbox.umap_eda import PlateUMAPLoader
 from sandbox.gui_controls import GuiControls
+import vigra
 
 app = pg.mkQApp()
 
-
-def show_mask_histogram(mask: np.ndarray):
-    mask = skimage.io.imread(mask)
-    plt.figure()
-    plt.hist(mask.ravel(), bins=50)
-    plt.show()
-    print(mask.min(), mask.max())
+from spatial_ops.data import JacksonFischerDataset as jfd, Patient
 
 
-def inspect_plate(plate):
-    img = plate.get_ome()
-    mask = plate.get_masks()
+class OmeViewer(QtGui.QWidget):
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        self.viewer = LayerViewerWidget()
+        self.viewer.setWindowTitle('ome viewer')
+        self.ome_layer = None
+        self.masks_layer = None
+        # self.viewer.show()
 
-    flat_mask = mask.ravel()
-    where_non_zero = numpy.where(flat_mask != 0)[0]
-    print(where_non_zero)
+        self.gui_controls = GuiControls()
+        self.viewer.inner_splitter.insertWidget(1, self.gui_controls)
 
-    print(mask.shape)
-    img = img.squeeze()
-    shape = img.shape[1:3]
-    n_channels = img.shape[0]
-    print(f"shape {img.shape}")
+        patients_count = len(jfd.patients)
+        self.gui_controls.patient_slider.setMaximum(patients_count - 1)
+        channels_count = len(jfd.get_channels_annotation())
+        self.gui_controls.channel_slider.setMaximum(channels_count - 1)
 
-    # img = numpy.moveaxis(img, 0, 2)
-    img = vigra.taggedView(img, 'xyc')
-    img = vigra.filters.gaussianSmoothing(img, 0.5)
-    img = numpy.require(img, requirements=['C'])
-    X = img.reshape([-1, n_channels])
-    maskedX = X[flat_mask, :]
-    n_components = 3
-    # dim_red_alg = sklearn.decomposition.PCA(n_components=n_components)
-    # dim_red_alg.fit(numpy.sqrt(X))
-    # Y = dim_red_alg.transform(X)
-    # reshape = tuple(shape) + (n_components,)
-    # Y = Y.reshape(reshape)
+        def patient_value_changed(new_patient_index):
+            self.set_patient_by_index(new_patient_index)
 
-    print(f"Y {img.shape}")
+        def channel_value_changed(new_channel):
+            self.ome_layer.ctrl_widget().channelSelector.setValue(new_channel)
+            self.update_channel_label()
 
-    # for c in range(3):
-    #     Yc = Y[..., c]
-    #     Yc -= Yc.min()
-    #     Yc /= Yc.max()
+        self.gui_controls.patient_slider.valueChanged.connect(patient_value_changed)
+        self.gui_controls.channel_slider.valueChanged.connect(channel_value_changed)
 
-    viewer = LayerViewerWidget()
-    viewer.setWindowTitle(f'{plate.ome_path}')
-    viewer.show()
-    layer = MultiChannelImageLayer(name='img', data=img[...])
-    viewer.addLayer(layer=layer)
-    layer.ctrl_widget().channelSelector.setValue(47)
-    gui_controls = GuiControls()
-    viewer.inner_splitter.insertWidget(1, gui_controls)
-    gui_controls.setPatient(plate.patient)
+        self.gui_controls.patient_slider.blockSignals(True)
+        self.set_patient_by_index(1)
+        self.gui_controls.patient_slider.blockSignals(False)
 
-    reducer, result = PlateUMAPLoader(plate).load_data()
-    color_channel = 5
-    rf = plate.get_region_features()
-    axes = viewer.axes()
-    axes.scatter(result[:, 0], result[:, 1], c=rf.sum[:, color_channel])
-    # viewer.plot_canvas().colorbar()
-    viewer.draw_plot_canvas()
+        def sync_back(new_channel):
+            print('syncing back')
+            self.gui_controls.channel_slider.blockSignals(True)
+            self.gui_controls.channel_slider.setValue(new_channel)
+            self.update_channel_label()
+            self.gui_controls.channel_slider.blockSignals(False)
 
-    # axes.show()
+        self.ome_layer.ctrl_widget().channelSelector.valueChanged.connect(sync_back)
+        pass
 
-    # layer = MultiChannelImageLayer(name='PCA-IMG', data=Y[...])
-    # viewer.addLayer(layer=layer)
-    # layer.ctrl_widget().toggle_eye.setState(False)
+    def set_patient_by_index(self, patient_index: int):
+        print('b')
+        self.current_patient = jfd.patients[patient_index]
+        patient_information = f'source: {self.current_patient.source}, pid: {self.current_patient.pid}'
+        self.gui_controls.patient_information_label.setText(patient_information)
+        self.current_plate = self.current_patient.plates[0]
+        ome = self.current_plate.get_ome()
+        ome = vigra.taggedView(ome, 'xyc')
+        ome = vigra.filters.gaussianSmoothing(ome, 0.5)
 
-    layer = ObjectLayer(name='mask', data=mask)
-    viewer.addLayer(layer=layer)
-    layer.ctrl_widget().bar.set_fraction(0.2)
+        if self.ome_layer is None:
+            self.ome_layer = MultiChannelImageLayer(name='ome', data=ome[...])
+            self.viewer.addLayer(layer=self.ome_layer)
+            self.ome_layer.ctrl_widget().channelSelector.setValue(47)
+        else:
+            self.ome_layer.update_data(ome)
 
 
-plate = jfd.patients[1].plates[0]
-inspect_plate(plate)
+        print('d')
+        if not hasattr(self, 'current_channel'):
+            self.current_channel = 0
+        channel_information = f'{jfd.get_channels_annotation()[self.current_channel]}'
+        self.gui_controls.channel_information_label.setText(channel_information)
+
+        masks = self.current_plate.get_masks()
+
+        if self.masks_layer is None:
+            self.masks_layer = ObjectLayer(name='mask', data=masks)
+            self.viewer.add_layer(layer=self.masks_layer)
+            self.masks_layer.ctrl_widget().bar.set_fraction(0.2)
+        else:
+            self.masks_layer.update_data(masks)
+
+    def set_patient(self, patient: Patient):
+        index_in_list = jfd.patients.index(patient)
+        self.set_patient_by_index(index_in_list)
+
+    def update_channel_label(self):
+        label = jfd.get_channels_annotation()[self.gui_controls.channel_slider.value()]
+        self.gui_controls.channel_information_label.setText(label)
+
+
+# def inspect_plate(plate):
+#
+#
+#     reducer, result = PlateUMAPLoader(plate).load_data()
+#     color_channel = 5
+#     rf = plate.get_region_features()
+#     axes = viewer.axes()
+#     axes.scatter(result[:, 0], result[:, 1], c=rf.sum[:, color_channel])
+#     # viewer.plot_canvas().colorbar()
+#     viewer.draw_plot_canvas()
+#
+#     # axes.show()
+#
+#     # layer = MultiChannelImageLayer(name='PCA-IMG', data=Y[...])
+#     # viewer.addLayer(layer=layer)
+#     # layer.ctrl_widget().toggle_eye.setState(False)
+#
+
+#
+# plate = jfd.patients[1].plates[0]
+# inspect_plate(plate)
 
 # layer = RGBImageLayer(name='img', data=image[...])
 # viewer.addLayer(layer=layer)
@@ -112,4 +138,7 @@ if __name__ == '__main__':
     import sys
 
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        QtGui.QApplication.instance().exec_()
+        # QtGui.QApplication.instance().exec_()
+        app = QtGui.QApplication(sys.argv)
+        OmeViewer()
+        sys.exit(app.exec_())

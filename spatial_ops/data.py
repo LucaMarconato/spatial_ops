@@ -206,6 +206,12 @@ class JacksonFischerDataset:
                     bar.update(i)
             pickle.dump(cls.patients, open(pickle_path, 'wb'))
 
+    @classmethod
+    def get_channels_annotation(cls):
+        channel_count = cls.patients[0].plates[0].get_region_features().sum.shape[1]
+        target_column_index = staining_data.columns.get_loc('Target')
+        return {i: str(staining_data.iloc[i, target_column_index]) for i in range(channel_count)}
+
 
 if __name__ == '__main__':
     jfd = JacksonFischerDataset
