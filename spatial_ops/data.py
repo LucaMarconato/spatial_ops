@@ -97,6 +97,19 @@ class RegionFeaturesLoader(PickleLazyLoader):
         return region_features
 
 
+class GetOmeLoader(PickleLazyLoader):
+    def get_resource_unique_identifier(self) -> str:
+        return 'get_ome'
+
+    def precompute(self):
+        ome = skimage.io.imread(self.associated_instance.ome_path)
+        ome = np.moveaxis(ome, 0, 2)
+        ome = np.require(ome, requirements=['C'])
+        # ome = vigra.taggedView(ome, 'xyc')
+        # ome = vigra.filters.gaussianSmoothing(ome, 0.5)
+        return ome
+
+
 class Plate(LazyLoaderAssociatedInstance):
     def __init__(self, ome_filename: str, patient: Patient):
         self.ome_path: str
@@ -124,16 +137,8 @@ class Plate(LazyLoaderAssociatedInstance):
         #     self.generate_region_features(self.region_features_path)
 
     def get_ome(self) -> np.ndarray:
-        import time
-        start = time.time()
-        ome = skimage.io.imread(self.ome_path)
-        print(f'loading: {time.time() - start}')
-        start = time.time()
-        ome = np.moveaxis(ome, 0, 2)
-        ome = np.require(ome, requirements=['C'])
-        print(f'preprocessing: {time.time() - start}')
-        # ome = vigra.taggedView(ome, 'xyc')
-        # ome = vigra.filters.gaussianSmoothing(ome, 0.5)
+        loader = GetOmeLoader(self)
+        ome = loader.load_data()
         return ome
 
     def get_masks(self) -> np.ndarray:
