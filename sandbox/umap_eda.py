@@ -13,6 +13,9 @@ from spatial_ops.lazy_loader import PickleLazyLoader
 
 
 class PlateUMAPLoader(PickleLazyLoader):
+    def get_resource_unique_identifier(self) -> str:
+        return 'plate_umap_of_sum'
+
     def precompute(self):
         rf = self.associated_instance.get_region_features()
         reducer = umap.UMAP(verbose=True, n_components=2)
@@ -20,10 +23,10 @@ class PlateUMAPLoader(PickleLazyLoader):
         data = (reducer, umap_result)
         return data
 
+
 def precompute_umap_on_single_patient(patient):
     for plate in patient.plates:
-        plate_umap_loader = PlateUMAPLoader(plate, 'plate_umap_of_sum')
-        plate_umap_loader.load_data()
+        PlateUMAPLoader(plate).load_data()
 
 
 def parallel_precompute_umap():

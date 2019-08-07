@@ -2,7 +2,7 @@ import os
 from typing import List
 
 import matplotlib.pyplot as plt
-import numpy
+import numpy as np
 import skimage
 import skimage.data
 import skimage.io
@@ -12,45 +12,14 @@ import vigra
 from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 
-from spatial_ops.folders import get_masks_folder, get_ome_folder
+from spatial_ops.data import JacksonFischerDataset as jfd
 from sandbox.umap_eda import PlateUMAPLoader
-
-mask_folder = get_masks_folder()
-img_folder = get_ome_folder()
-dataset = []
-
-img_count = len([img for img in os.listdir(img_folder) if img.endswith('.tiff')])
-masks_count = len([img for img in os.listdir(mask_folder) if img.endswith('.tiff')])
-if img_count != masks_count:
-    raise ValueError(f'img_count = {img_count}, masks_count = {masks_count}')
-
-# make pairs of (img, mask) for all images in the dataset
-for filename in os.listdir(img_folder):
-    img_path = filename
-    mask_path = ''
-    if filename.endswith('ome.tiff'):  # or filename.endswith('.py'):
-        mask_path = img_path.replace('.ome.tiff', '_full_mask.tiff')
-    elif filename.endswith('full.tiff'):
-        mask_path = img_path.replace('full.tiff', 'full_maks.tiff')
-    img_path = os.path.join(img_folder, img_path)
-    mask_path = os.path.join(mask_folder, mask_path)
-    if os.path.isfile(img_path) and os.path.isfile(mask_path):
-        dataset.append((img_path, mask_path))
-
-if len(dataset) != img_count:
-    raise ValueError(f'len(dataset) = {len(dataset)}, img_count = {img_count}')
-print(len(dataset))
+from sandbox.gui_controls import GuiControls
 
 app = pg.mkQApp()
 
-image = skimage.data.astronaut().swapaxes(0, 1)
-print(image.shape)
 
-dataset = sorted(dataset, key=lambda x: x[0])
-
-
-def show_mask_histogram(item: int):
-    mask = dataset[item][1]
+def show_mask_histogram(mask: np.ndarray):
     mask = skimage.io.imread(mask)
     plt.figure()
     plt.hist(mask.ravel(), bins=50)
@@ -58,14 +27,9 @@ def show_mask_histogram(item: int):
     print(mask.min(), mask.max())
 
 
-# show_mask_histogram(222)
-
-def inspect_image(item: int):
-    f = dataset[item][0]
-    mask = dataset[item][1]
-
-    img = skimage.io.imread(f)
-    mask = skimage.io.imread(mask)
+def inspect_plate(plate):
+    img = plate.get_ome()
+    mask = plate.get_masks()
 
     flat_mask = mask.ravel()
     where_non_zero = numpy.where(flat_mask != 0)[0]
@@ -77,13 +41,13 @@ def inspect_image(item: int):
     n_channels = img.shape[0]
     print(f"shape {img.shape}")
 
-    n_components = 3
-    img = numpy.moveaxis(img, 0, 2)
+    # img = numpy.moveaxis(img, 0, 2)
     img = vigra.taggedView(img, 'xyc')
     img = vigra.filters.gaussianSmoothing(img, 0.5)
     img = numpy.require(img, requirements=['C'])
     X = img.reshape([-1, n_channels])
     maskedX = X[flat_mask, :]
+    n_components = 3
     # dim_red_alg = sklearn.decomposition.PCA(n_components=n_components)
     # dim_red_alg.fit(numpy.sqrt(X))
     # Y = dim_red_alg.transform(X)
@@ -98,13 +62,21 @@ def inspect_image(item: int):
     #     Yc /= Yc.max()
 
     viewer = LayerViewerWidget()
-    viewer.setWindowTitle(f'{item}: {dataset[item][0]}')
+    viewer.setWindowTitle(f'{plate.ome_path}')
     viewer.show()
     layer = MultiChannelImageLayer(name='img', data=img[...])
     viewer.addLayer(layer=layer)
     layer.ctrl_widget().channelSelector.setValue(47)
+    gui_controls = GuiControls()
+    viewer.inner_splitter.insertWidget(1, gui_controls)
+    gui_controls.setPatient(plate.patient)
+
+    reducer, result = PlateUMAPLoader(plate).load_data()
+    color_channel = 5
+    rf = plate.get_region_features()
     axes = viewer.axes()
-    axes.scatter(list(range(10)), list(range(10)))
+    axes.scatter(result[:, 0], result[:, 1], c=rf.sum[:, color_channel])
+    # viewer.plot_canvas().colorbar()
     viewer.draw_plot_canvas()
 
     # axes.show()
@@ -118,42 +90,24 @@ def inspect_image(item: int):
     layer.ctrl_widget().bar.set_fraction(0.2)
 
 
-def match(image_names: List[str]) -> List[int]:
-    only_images = [os.path.basename(x[0]) for x in dataset]
-    return [only_images.index(x) if x in only_images else None for x in image_names]
+plate = jfd.patients[1].plates[0]
+inspect_plate(plate)
 
-
-multiple_images = [
-    'BaselTMA_SP41_33.475kx17.665ky_8500x5000_13_20170905_11_2_X2Y8_159_a0_full.tiff'
-    # 'BaselTMA_SP41_25.475kx12.665ky_8000x8500_3_20170905_83_218_X10Y4_193_a0_full.tiff',
-    # 'BaselTMA_SP41_33.475kx12.66ky_8500x8500_2_20170905_83_218_X10Y4_244_a0_full.tiff',
-    # 'BaselTMA_SP41_25.475kx12.665ky_8000x8500_3_20170905_75_218_X9Y4_185_a0_full.tiff',
-    # 'BaselTMA_SP41_33.475kx12.66ky_8500x8500_2_20170905_75_218_X9Y4_240_a0_full.tiff'
-]
-
-indexes = match(multiple_images)
-for i in indexes:
-    inspect_image(i)
-# inspect_image(221)
-# inspect_image(222)
-# inspect_image(223)
 # layer = RGBImageLayer(name='img', data=image[...])
 # viewer.addLayer(layer=layer)
-
 
 # labels = numpy.zeros(image.shape[0:2], dtype='uint8')
 # label_layer = LabelLayer(name='labels', data=None)
 # viewer.addLayer(layer=label_layer)
 # viewer.setData('labels',image=labels)
 
-
 # layer.setOpacity(0.5)
-
 
 # # viewer.setLayerVisibility('img', False)
 # viewer.setLayerOpacity('img', 0.4)
 # viewer.setLayerOpacity('img', 0.4)
-## Start Qt event loop unless running in interactive mode or using pyside.
+
+# start qt event loop unless running in interactive mode or using pyside.
 if __name__ == '__main__':
     import sys
 

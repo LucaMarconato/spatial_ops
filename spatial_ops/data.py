@@ -57,7 +57,7 @@ class Patient(LazyLoaderAssociatedInstance):
         plate_rows = self.df[self.df.PID == self.pid]
         for plate_row in plate_rows.itertuples():
             filename = plate_row.FileName_FullStack
-            plate = Plate(filename)
+            plate = Plate(filename, self)
             self.plates.append(plate)
 
     def get_lazy_loader_unique_identifier(self) -> str:
@@ -75,6 +75,9 @@ class RegionFeatures:
 
 
 class RegionFeaturesLoader(PickleLazyLoader):
+    def get_resource_unique_identifier(self) -> str:
+        return 'region_features'
+
     def precompute(self):
         ome = self.associated_instance.get_ome()
         masks = self.associated_instance.get_masks()
@@ -95,10 +98,11 @@ class RegionFeaturesLoader(PickleLazyLoader):
 
 
 class Plate(LazyLoaderAssociatedInstance):
-    def __init__(self, ome_filename: str):
+    def __init__(self, ome_filename: str, patient: Patient):
         self.ome_path: str
         self.mask_path: str
         self.region_features_path: str
+        self.patient = patient
 
         self.ome_path = os.path.join(get_ome_folder(), ome_filename)
         if self.ome_path in remaining_ome_files:
@@ -112,8 +116,7 @@ class Plate(LazyLoaderAssociatedInstance):
         else:
             raise FileNotFoundError(f'file not found {self.mask_path}')
 
-        self.region_features_loader = RegionFeaturesLoader(associated_instance=self,
-                                                           resource_unique_identifier='region_features')
+        self.region_features_loader = RegionFeaturesLoader(associated_instance=self)
         if not self.region_features_loader.has_data_already_been_precomputed():
             self.region_features_loader.precompute()
         # self.region_features_path = get_region_features_path_associated_to_ome_path(self.ome_path)

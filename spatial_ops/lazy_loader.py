@@ -18,9 +18,12 @@ class LazyLoaderAssociatedInstance:
 
 
 class LazyLoader(ABC):
-    def __init__(self, associated_instance: LazyLoaderAssociatedInstance, resource_unique_identifier: str):
+    def __init__(self, associated_instance: LazyLoaderAssociatedInstance):
         self.associated_instance = associated_instance
-        self.resource_unique_identifier = resource_unique_identifier
+
+    @abstractmethod
+    def get_resource_unique_identifier(self) -> str:
+        pass
 
     @abstractmethod
     def precompute(self):
@@ -64,10 +67,8 @@ class LazyLoader(ABC):
 
 class PickleLazyLoader(LazyLoader, ABC):
     def _get_resource_id(self) -> str:
-        if self.resource_unique_identifier is None:
-            raise ValueError(f'self.resource_unique_identifier = {self.resource_unique_identifier}')
         resource_id = self.associated_instance.get_lazy_loader_unique_identifier().replace('-', '--') \
-                      + '-' + self.resource_unique_identifier.replace('-', '--')
+                      + '-' + self.get_resource_unique_identifier().replace('-', '--')
         return resource_id
 
     def get_pickle_path(self):
@@ -96,10 +97,8 @@ if not os.path.isfile(hdf5_lazy_loader_data_path):
 
 class HDF5LazyLoader(LazyLoader, ABC):
     def _get_resource_id(self) -> str:
-        if self.resource_unique_identifier is None:
-            raise ValueError(f'self.resource_unique_identifier = {self.resource_unique_identifier}')
         resource_id = self.associated_instance.get_lazy_loader_unique_identifier() \
-                      + '/' + self.resource_unique_identifier
+                      + '/' + self.get_resource_unique_identifier()
         return resource_id
 
     # just for convenience, to have the path ready when deriving the subclass
@@ -126,7 +125,7 @@ class HDF5LazyLoader(LazyLoader, ABC):
 
     def _save_data(self, data):
         with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
-                f[self.get_hdf5_resource_internal_path()] = data
+            f[self.get_hdf5_resource_internal_path()] = data
 
 
 if __name__ == '__main__':
@@ -137,6 +136,9 @@ if __name__ == '__main__':
 
 
     class NumberOfPlatesLoader0(PickleLazyLoader):
+        def get_resource_unique_identifier(self) -> str:
+            return 'example_quantity_pickle'
+
         def precompute(self):
             # just to enable the autocompletion within the ide
             p: Patient = self.associated_instance
@@ -144,11 +146,14 @@ if __name__ == '__main__':
             return data
 
 
-    derived_quantity = NumberOfPlatesLoader0(patient, 'example_quantity')
+    derived_quantity = NumberOfPlatesLoader0(patient)
     print(derived_quantity.load_data())
 
 
     class NumberOfPlatesLoader1(HDF5LazyLoader):
+        def get_resource_unique_identifier(self) -> str:
+            return 'example_quantity_hdf5'
+
         def precompute(self):
             p: Patient = self.associated_instance
             data = f'len = {len(p.plates)}'
@@ -156,6 +161,6 @@ if __name__ == '__main__':
             return data
 
 
-    derived_quantity = NumberOfPlatesLoader1(patient, 'example_quantity')
+    derived_quantity = NumberOfPlatesLoader1(patient)
     # derived_quantity.delete_precomputation()
     print(derived_quantity.load_data())
