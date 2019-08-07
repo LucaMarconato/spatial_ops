@@ -31,66 +31,62 @@ class OmeViewer(QtGui.QWidget):
         channels_count = len(jfd.get_channels_annotation())
         self.gui_controls.channel_slider.setMaximum(channels_count - 1)
 
-        def patient_value_changed(new_patient_index):
-            self.set_patient_by_index(new_patient_index)
+        self.gui_controls.patient_slider.valueChanged.connect(lambda x: self.patient_slider_value_changed(x))
+        self.gui_controls.channel_slider.valueChanged.connect(lambda x: self.channel_slider_value_changed(x))
 
-        def channel_value_changed(new_channel):
-            self.ome_layer.ctrl_widget().channelSelector.setValue(new_channel)
-            self.update_channel_label()
-
-        self.gui_controls.patient_slider.valueChanged.connect(patient_value_changed)
-        self.gui_controls.channel_slider.valueChanged.connect(channel_value_changed)
-
-        self.gui_controls.patient_slider.blockSignals(True)
-        self.set_patient_by_index(1)
-        self.gui_controls.patient_slider.blockSignals(False)
+        self.set_patient(jfd.patients[20])
 
         def sync_back(new_channel):
-            print('syncing back')
-            self.gui_controls.channel_slider.blockSignals(True)
             self.gui_controls.channel_slider.setValue(new_channel)
-            self.update_channel_label()
-            self.gui_controls.channel_slider.blockSignals(False)
 
         self.ome_layer.ctrl_widget().channelSelector.valueChanged.connect(sync_back)
+
+        self.ome_layer.ctrl_widget().channelSelector.setValue(47)
         pass
 
-    def set_patient_by_index(self, patient_index: int):
-        print('b')
+    def patient_slider_value_changed(self, patient_index: int):
         self.current_patient = jfd.patients[patient_index]
         patient_information = f'source: {self.current_patient.source}, pid: {self.current_patient.pid}'
         self.gui_controls.patient_information_label.setText(patient_information)
         self.current_plate = self.current_patient.plates[0]
+        import time
+        start = time.time()
         ome = self.current_plate.get_ome()
-        ome = vigra.taggedView(ome, 'xyc')
-        ome = vigra.filters.gaussianSmoothing(ome, 0.5)
+        print(f'get_ome: {time.time() - start}')
 
         if self.ome_layer is None:
+            start = time.time()
             self.ome_layer = MultiChannelImageLayer(name='ome', data=ome[...])
             self.viewer.addLayer(layer=self.ome_layer)
-            self.ome_layer.ctrl_widget().channelSelector.setValue(47)
+            print(f'creating ome layer: {time.time() - start}')
         else:
+            start = time.time()
             self.ome_layer.update_data(ome)
+            print(f'updating ome layer: {time.time() - start}')
 
-
-        print('d')
-        if not hasattr(self, 'current_channel'):
-            self.current_channel = 0
-        channel_information = f'{jfd.get_channels_annotation()[self.current_channel]}'
-        self.gui_controls.channel_information_label.setText(channel_information)
-
+        start = time.time()
         masks = self.current_plate.get_masks()
+        print(f'get_masks: {time.time() - start}')
 
         if self.masks_layer is None:
+            start = time.time()
             self.masks_layer = ObjectLayer(name='mask', data=masks)
             self.viewer.add_layer(layer=self.masks_layer)
             self.masks_layer.ctrl_widget().bar.set_fraction(0.2)
+            print(f'creating masks layer: {time.time() - start}')
         else:
+            start = time.time()
             self.masks_layer.update_data(masks)
+            print(f'updating masks layer: {time.time() - start}')
+        print(f'')
+
+    def channel_slider_value_changed(self, new_channel):
+        self.ome_layer.ctrl_widget().channelSelector.setValue(new_channel)
+        self.update_channel_label()
 
     def set_patient(self, patient: Patient):
         index_in_list = jfd.patients.index(patient)
-        self.set_patient_by_index(index_in_list)
+        self.gui_controls.patient_slider.setValue(index_in_list)
 
     def update_channel_label(self):
         label = jfd.get_channels_annotation()[self.gui_controls.channel_slider.value()]

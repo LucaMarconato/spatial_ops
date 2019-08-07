@@ -124,9 +124,16 @@ class Plate(LazyLoaderAssociatedInstance):
         #     self.generate_region_features(self.region_features_path)
 
     def get_ome(self) -> np.ndarray:
+        import time
+        start = time.time()
         ome = skimage.io.imread(self.ome_path)
+        print(f'loading: {time.time() - start}')
+        start = time.time()
         ome = np.moveaxis(ome, 0, 2)
         ome = np.require(ome, requirements=['C'])
+        print(f'preprocessing: {time.time() - start}')
+        # ome = vigra.taggedView(ome, 'xyc')
+        # ome = vigra.filters.gaussianSmoothing(ome, 0.5)
         return ome
 
     def get_masks(self) -> np.ndarray:
@@ -207,10 +214,24 @@ class JacksonFischerDataset:
             pickle.dump(cls.patients, open(pickle_path, 'wb'))
 
     @classmethod
-    def get_channels_annotation(cls):
+    def get_channels_annotation(cls) -> Dict[int, str]:
         channel_count = cls.patients[0].plates[0].get_region_features().sum.shape[1]
-        target_column_index = staining_data.columns.get_loc('Target')
-        return {i: str(staining_data.iloc[i, target_column_index]) for i in range(channel_count)}
+        annotations = {i: list() for i in range(channel_count)}
+        for index, row in staining_data.iterrows():
+            target = row['Target']
+            # we are using 0-based indexes, the data uses 1-based indexes
+            corresponding_channel = row['FullStack'] - 1
+            if corresponding_channel in range(channel_count):
+                annotations[corresponding_channel].append(target)
+        to_return = dict()
+        for key, value in annotations.items():
+            if len(value) == 1:
+                to_return[key] = value[0]
+            elif len(value) == 0:
+                to_return[key] = 'not assigned'
+            else:
+                to_return[key] = 'ambiguous: ' + ' or '.join(map(lambda x: f'"{x}"', value))
+        return to_return
 
 
 if __name__ == '__main__':
