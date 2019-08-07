@@ -18,28 +18,38 @@ Integrative analysis of single cell imaging mass citometry data of breast cancer
 
 We perform an integrative analysis of multiplexed proteomics single cell spatial data from breast cancer tissues using deep convolutional variational autoencoders. 
 
-Features
---------
-Current features include: 
-  * Conda ready
-  * pytest unit test
-  * continous integration
-  * coverall code coverage
-  * documentation with Sphinx
-  * documentation on Read the Docs
+.. 
+    Features
+    --------
+    Current features include: 
+      * Conda ready
+      * pytest unit test
+      * continous integration
+      * coverall code coverage
+      * documentation with Sphinx
+      * documentation on Read the Docs
 
 
 Running a first exploratory data analysis
 ================
-First, install the dependencies with
+The repository does not contain any biological data and the data is not publically available.
+The code should be run on the DKFZ cluster since the data is stored in our private group folder, under ``/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data``
+
+To perform an exploratory data analysis, first login into the DFKZ cluster with the ``-X`` option.
+
+After cloning the repository, install the dependencies with
 
 ``conda env create -f spatial_ops-dev-requirements.yml``
 
-and activate the corresponding conda environment
+If running the code (see later) some dependencies are still missing, this would probably mean that the requirements of the project have been changed since the time you created the environment, so you need to run
+
+``conda env update -f spatial_ops-dev-requirements.yml``
+
+Now activate the conda environment
 
 ``conda activate spatial-dev``
 
-Now, if you are in DKFZ cluster the data is already present (in ``/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data``) so you can run the exploratory data analysis simply with the command
+and simply run snakemake
 
 ``snakemake``
 
