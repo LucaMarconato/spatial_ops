@@ -4,6 +4,7 @@ channels:
   - anaconda
   - conda-forge
   - bioconda
+  - pytorch
 dependencies:
   - make
   - sphinx 
@@ -28,5 +29,6 @@ dependencies:
   - umap-learn
   - seaborn
   - h5py
+  - pytorch
   - pip:
     - git+https://github.com/LucaMarconato/layer_viewer.git

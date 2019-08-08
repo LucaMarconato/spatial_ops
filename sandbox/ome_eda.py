@@ -12,6 +12,7 @@ import vigra
 app = pg.mkQApp()
 
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient
+from sandbox.umap_eda import PlateUMAPLoader
 
 
 class OmeViewer(QtGui.QWidget):
@@ -52,6 +53,7 @@ class OmeViewer(QtGui.QWidget):
         import time
         start = time.time()
         ome = self.current_plate.get_ome()
+        self.update_umap()
         print(f'get_ome: {time.time() - start}')
 
         if self.ome_layer is None:
@@ -91,6 +93,16 @@ class OmeViewer(QtGui.QWidget):
     def update_channel_label(self):
         label = jfd.get_channels_annotation()[self.gui_controls.channel_slider.value()]
         self.gui_controls.channel_information_label.setText(label)
+        self.update_umap()
+
+    def update_umap(self):
+        reducer, umap_results = PlateUMAPLoader(self.current_plate).load_data()
+        rf = self.current_plate.get_region_features()
+        current_channel = self.gui_controls.channel_slider.value()
+        self.viewer.plot_canvas().clear_canvas()
+        axes = self.viewer.plot_canvas().axes
+        axes.scatter(umap_results[:, 0], umap_results[:, 1], c=rf.sum[:, current_channel])
+        self.viewer.draw_plot_canvas()
 
 
 # def inspect_plate(plate):

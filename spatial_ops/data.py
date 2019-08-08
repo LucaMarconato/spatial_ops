@@ -8,7 +8,6 @@ import pandas as pd
 import progressbar
 import skimage
 import vigra
-import h5py
 
 from spatial_ops.folders import \
     basel_patient_data_path, \
@@ -123,6 +122,10 @@ class Plate(LazyLoaderAssociatedInstance):
         else:
             raise FileNotFoundError(f'file not found: {self.ome_path}')
 
+        loader = GetOmeLoader(associated_instance=self)
+        if not loader.has_data_already_been_precomputed():
+            loader.precompute()
+
         self.mask_path = get_mask_path_associated_to_ome_path(self.ome_path)
         if self.mask_path in remaining_mask_files:
             remaining_mask_files.remove(self.mask_path)
@@ -137,7 +140,7 @@ class Plate(LazyLoaderAssociatedInstance):
         #     self.generate_region_features(self.region_features_path)
 
     def get_ome(self) -> np.ndarray:
-        loader = GetOmeLoader(self)
+        loader = GetOmeLoader(associated_instance=self)
         ome = loader.load_data()
         return ome
 
@@ -238,8 +241,16 @@ class JacksonFischerDataset:
                 to_return[key] = 'ambiguous: ' + ' or '.join(map(lambda x: f'"{x}"', value))
         return to_return
 
+    @classmethod
+    def get_biologically_relevant_channels(cls) -> Dict[int, str]:
+        channels = cls.get_channels_annotation()
+        relevant = {k: v for k, v in channels.items() if
+                    v not in ['not assigned', 'undefined', 'ArgonDimers', 'RutheniumTetroxide']}
+        return relevant
+
 
 if __name__ == '__main__':
     jfd = JacksonFischerDataset
     region_features = jfd.patients[0].plates[0].get_region_features()
     print(region_features.sum)
+    jfd.get_biologically_relevant_channels()
