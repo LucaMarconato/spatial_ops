@@ -1,6 +1,6 @@
 import os
 import pickle
-from enum import Enum
+from enum import IntEnum
 from typing import Dict
 
 import numpy as np
@@ -12,22 +12,17 @@ import vigra
 from spatial_ops.folders import \
     basel_patient_data_path, \
     zurich_patient_data_path, \
-    single_cell_data_path, \
     staining_data_path, \
     whole_image_data_path, \
  \
-    get_processed_data_folder, \
     get_ome_files, \
     get_masks_files, \
     get_ome_folder, \
  \
     get_mask_path_associated_to_ome_path, \
     get_pickles_folder
-from spatial_ops.unpickler import CustomUnpickler
-from spatial_ops.lazy_loader import LazyLoaderAssociatedInstance, PickleLazyLoader
-
-database_single_cell = os.path.join(get_processed_data_folder(),
-                                    os.path.basename(single_cell_data_path.replace('.csv', '.db')))
+from .lazy_loader import LazyLoaderAssociatedInstance, PickleLazyLoader
+from .unpickler import CustomUnpickler
 
 basel_patient_data = pd.read_csv(basel_patient_data_path)
 zurich_patient_data = pd.read_csv(zurich_patient_data_path)
@@ -37,7 +32,10 @@ whole_image_data = pd.read_csv(whole_image_data_path)
 remaining_ome_files = set(get_ome_files())
 remaining_mask_files = set(get_masks_files())
 
-PatientSource = Enum('PatientSource', 'basel zurich')
+
+class PatientSource(IntEnum):
+    basel = 0
+    zurich = 1
 
 
 class Patient(LazyLoaderAssociatedInstance):
@@ -78,7 +76,7 @@ class RegionFeaturesLoader(PickleLazyLoader):
         return 'region_features'
 
     def precompute(self):
-        ome = self.associated_instance.get_ome()
+        ome = self.associated_instance.get_ome(cache=False)
         masks = self.associated_instance.get_masks()
 
         feature_accumulator = vigra.analysis.extractRegionFeatures(ome, labels=masks, ignoreLabel=0,
@@ -122,9 +120,8 @@ class Plate(LazyLoaderAssociatedInstance):
         else:
             raise FileNotFoundError(f'file not found: {self.ome_path}')
 
-        loader = GetOmeLoader(associated_instance=self)
-        if not loader.has_data_already_been_precomputed():
-            loader.precompute()
+        self.ome_loader = GetOmeLoader(associated_instance=self)
+        # self.ome_loader.precompute_if_needed()
 
         self.mask_path = get_mask_path_associated_to_ome_path(self.ome_path)
         if self.mask_path in remaining_mask_files:
@@ -133,15 +130,14 @@ class Plate(LazyLoaderAssociatedInstance):
             raise FileNotFoundError(f'file not found {self.mask_path}')
 
         self.region_features_loader = RegionFeaturesLoader(associated_instance=self)
-        if not self.region_features_loader.has_data_already_been_precomputed():
-            self.region_features_loader.precompute()
+        self.region_features_loader.precompute_if_needed()
+
         # self.region_features_path = get_region_features_path_associated_to_ome_path(self.ome_path)
         # if not os.path.isfile(self.region_features_path):
         #     self.generate_region_features(self.region_features_path)
 
-    def get_ome(self) -> np.ndarray:
-        loader = GetOmeLoader(associated_instance=self)
-        ome = loader.load_data()
+    def get_ome(self, cache=True) -> np.ndarray:
+        ome = self.ome_loader.load_data(store_precomputation_on_disk=cache)
         return ome
 
     def get_masks(self) -> np.ndarray:
@@ -247,6 +243,18 @@ class JacksonFischerDataset:
         relevant = {k: v for k, v in channels.items() if
                     v not in ['not assigned', 'undefined', 'ArgonDimers', 'RutheniumTetroxide']}
         return relevant
+
+    @classmethod
+    def get_patient_index_by_source_and_pid(cls, source: PatientSource, pid: int):
+        # bad complexity but ok
+        for i, patient in enumerate(cls.patients):
+            if patient.source == source and patient.pid == pid:
+                return i
+        raise Exception(f'patient not found, source = {source}, pid = {pid}')
+
+    @classmethod
+    def patient_count_by_source(cls, source: PatientSource):
+        return len([0 for patient in cls.patients if patient.source == source])
 
 
 if __name__ == '__main__':

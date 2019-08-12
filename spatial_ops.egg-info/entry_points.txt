@@ -1,0 +1,3 @@
+[console_scripts]
+spatial_ops = spatial_ops.cli.main:cli
+

@@ -1,11 +1,12 @@
-import pickle
-import h5py
 import os
-import numpy as np
+import pickle
 from abc import ABC, abstractmethod
 
-from spatial_ops.folders import get_pickle_lazy_loader_data_path, hdf5_lazy_loader_data_path
-from spatial_ops.unpickler import CustomUnpickler
+import h5py
+import numpy as np
+
+from .folders import get_pickle_lazy_loader_data_path, hdf5_lazy_loader_data_path
+from .unpickler import CustomUnpickler
 
 
 class LazyLoaderAssociatedInstance:
@@ -37,11 +38,15 @@ class LazyLoader(ABC):
     def has_data_already_been_precomputed(self):
         pass
 
+    def precompute_if_needed(self):
+        if not self.has_data_already_been_precomputed():
+            self.precompute()
+
     @abstractmethod
     def _load_precomputed_data(self):
         pass
 
-    def load_data(self):
+    def load_data(self, store_precomputation_on_disk=True):
         if self.associated_instance is None:
             raise ValueError(f'self.associated_instance = {self.associated_instance}')
 
@@ -50,7 +55,8 @@ class LazyLoader(ABC):
             data = self.precompute()
             if data is None:
                 raise ValueError(f'data = {data}')
-            self._save_data(data)
+            if store_precomputation_on_disk:
+                self._save_data(data)
             return data
         else:
             # print('loading')
@@ -60,23 +66,24 @@ class LazyLoader(ABC):
     def _save_data(self, data):
         pass
 
-    @abstractmethod
-    def _get_resource_id(self) -> str:
-        pass
-
 
 class PickleLazyLoader(LazyLoader, ABC):
-    def _get_resource_id(self) -> str:
-        resource_id = self.associated_instance.get_lazy_loader_unique_identifier().replace('-', '--') \
-                      + '-' + self.get_resource_unique_identifier().replace('-', '--')
-        return resource_id
-
     def get_pickle_path(self):
-        return os.path.join(get_pickle_lazy_loader_data_path(), self._get_resource_id() + '.pickle')
+        path = os.path.join(get_pickle_lazy_loader_data_path(),
+                            self.associated_instance.get_lazy_loader_unique_identifier())
+        os.makedirs(path, exist_ok=True)
+        path = os.path.join(path, self.get_resource_unique_identifier() + '.pickle')
+        return path
 
     def _load_precomputed_data(self):
         pickle_path = self.get_pickle_path()
-        data = CustomUnpickler(open(pickle_path, 'rb')).load()
+        try:
+            data = CustomUnpickler(open(pickle_path, 'rb')).load()
+        # if the pickle is corrupted because a previous execution of the program was terminated while pickling a file
+        # then we want to delete the pickle file and recompute it
+        except EOFError:
+            self.delete_precomputation()
+            data = self.load_data()
         return data
 
     def has_data_already_been_precomputed(self):
@@ -96,17 +103,13 @@ if not os.path.isfile(hdf5_lazy_loader_data_path):
 
 
 class HDF5LazyLoader(LazyLoader, ABC):
-    def _get_resource_id(self) -> str:
-        resource_id = self.associated_instance.get_lazy_loader_unique_identifier() \
-                      + '/' + self.get_resource_unique_identifier()
-        return resource_id
-
     # just for convenience, to have the path ready when deriving the subclass
     def get_hdf5_file_path(self) -> str:
         return hdf5_lazy_loader_data_path
 
     def get_hdf5_resource_internal_path(self):
-        return self._get_resource_id()
+        return self.associated_instance.get_lazy_loader_unique_identifier() \
+               + '/' + self.get_resource_unique_identifier()
 
     # using a singleton and opening the file only once in r+ mode would lead to better performance, but I will wait
     # to see if the current performance are bad before implementing it
