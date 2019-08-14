@@ -1,7 +1,5 @@
 import pyqtgraph as pg
-from PyQt5 import QtGui
 from PyQt5.QtCore import QSettings
-from PyQt5.QtCore import Qt
 from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 
@@ -32,7 +30,7 @@ class OmeViewer(QtGui.QWidget):
         # | image  ctrl0 |      | image  ctrl1 |
         # |              |      |        plot  |
         # |--------------|      |--------------|
-        self.plot_widget = LayerPlotWidget()
+        # self.plot_widget = LayerPlotWidget()
         if self.viewer.gui_style != 'splitter':
             raise Exception('can only insert the plot widget if the gui of layer viewer is using splitters')
         self.inner_container = QWidget()
@@ -43,7 +41,11 @@ class OmeViewer(QtGui.QWidget):
         self.inner_splitter.setOrientation(Qt.Vertical)
         self.vhbox.addWidget(self.inner_splitter)
         self.inner_splitter.addWidget(self.viewer.m_layer_ctrl_widget)
-        self.inner_splitter.addWidget(self.plot_widget)
+        self.graphics_layout_widget = pg.GraphicsLayoutWidget()
+        self.inner_splitter.addWidget(self.graphics_layout_widget)
+        self.plot_widget = self.graphics_layout_widget.addPlot()
+
+        # self.inner_splitter.addWidget(self.plot_widget)
 
         self.gui_controls = GuiControls()
         self.inner_splitter.insertWidget(1, self.gui_controls)
@@ -86,7 +88,7 @@ class OmeViewer(QtGui.QWidget):
         self.ome_layer.ctrl_widget().channel_selector.setValue(47)
         self.load_settings()
 
-        self.cid = self.plot_widget.mpl_canvas.mpl_connect('motion_notify_event', self)
+        # self.cid = self.plot_widget.mpl_canvas.mpl_connect('motion_notify_event', self)
 
     def __call__(self, event):
         if event.xdata is None and event.ydata is not None or event.xdata is not None and event.ydata is None:
@@ -244,16 +246,21 @@ class OmeViewer(QtGui.QWidget):
 
     def update_umap(self):
         reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
-        rf = self.current_plate.get_region_features()
         current_channel = self.gui_controls.channel_slider.value()
-        self.plot_widget.mpl_canvas.clear_canvas()
-        axes = self.plot_widget.axes()
-        self.current_points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
-        self.scatter_plot = axes.scatter(umap_results[:, 0], umap_results[:, 1], c=original_data[:, current_channel])
-        axes.set_aspect('equal')
-        self.mouse_circle_path = matplotlib.patches.Circle((0.0, 0.0), 1, alpha=0.2, fc='yellow')
-        # axes.add_patch(self.mouse_circle_path)
-        self.plot_widget.mpl_canvas.draw()
+
+        s1 = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
+        spots = [{'pos': umap_results[i, :], 'data': original_data[i, current_channel]} for i in range(umap_results.shape[0])]
+        s1.addPoints(spots)
+        self.plot_widget.addItem(s1)
+
+        # self.plot_widget.mpl_canvas.clear_canvas()
+        # axes = self.plot_widget.axes()
+        # self.current_points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
+        # self.scatter_plot = axes.scatter(umap_results[:, 0], umap_results[:, 1], c=original_data[:, current_channel])
+        # axes.set_aspect('equal')
+        # self.mouse_circle_path = matplotlib.patches.Circle((0.0, 0.0), 1, alpha=0.2, fc='yellow')
+        # # axes.add_patch(self.mouse_circle_path)
+        # self.plot_widget.mpl_canvas.draw()
 
 
 # def inspect_plate(plate):
