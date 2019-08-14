@@ -1,3 +1,4 @@
+import pyqtgraph as pg
 from PyQt5 import QtGui
 from PyQt5.QtCore import QSettings
 from PyQt5.QtCore import Qt
@@ -12,6 +13,8 @@ from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSourc
 from sandbox.umap_eda import PlateUMAPLoader
 
 from spatial_ops.layer_plot_widget import LayerPlotWidget
+import matplotlib.patches
+from typing import List
 
 
 class OmeViewer(QtGui.QWidget):
@@ -82,7 +85,70 @@ class OmeViewer(QtGui.QWidget):
 
         self.ome_layer.ctrl_widget().channel_selector.setValue(47)
         self.load_settings()
+
+        self.cid = self.plot_widget.mpl_canvas.mpl_connect('motion_notify_event', self)
+
+    def __call__(self, event):
+        if event.xdata is None and event.ydata is not None or event.xdata is not None and event.ydata is None:
+            raise Exception(f'event.xdata = {event.xdata}, event.ydata = {event.ydata}')
+
+        if event.xdata is None:
+            self.mouse_circle_path.set_alpha(0.0)
+        else:
+            self.mouse_circle_path.set_center((event.xdata, event.ydata))
+            self.mouse_circle_path.set_alpha(0.2)
+
+        # self.plot_widget.mpl_canvas.draw()
+        indices = self.get_indices_of_selected_points()
+        self.highlight_selected_cells(indices)
+        # print(event)
+
+    def highlight_selected_cells(self, indices):
+        # indices_selected = indices
+        indices_not_selected = list(set(range(len(self.current_points))).difference(indices))
+        lut = self.masks_layer.lut
+        if len(lut) != len(self.current_points):
+            lut_size = len(self.current_points)
+            s4 = lut_size * 4
+            lut = numpy.random.randint(low=0, high=255, size=s4)
+            lut = lut.reshape([lut_size, 4])
+            # because the first channel is the background
+            lut[0, 3] = 0
+            lut = lut.astype('int64')
+        lut[:, 3] = 255
+        if len(indices_not_selected) > 0:
+            lut[indices_not_selected, 3] = 0.1
+
+        self.masks_layer.lut = lut
+        self.masks_layer.update_data(self.masks_layer.m_data)
         pass
+
+    def get_indices_of_selected_points(self) -> List[int]:
+        # this does not work
+        # contained = self.mouse_circle_path.contains_points(self.current_points)
+        # to_return = [i for i, b in enumerate(contained) if b is True]
+        # print(len(contained))
+        # print(len(to_return))
+        # print('')
+        c = self.mouse_circle_path.center
+        l = [i for i, (x, y) in enumerate(self.current_points) if (x - c[0]) ** 2 + (y - c[1]) ** 2 < 1]
+        return l
+
+        # def mouseMoved(evt):
+        #     pos = evt[0]  ## using signal proxy turns original arguments into a tuple
+        #     print(pos)
+        #     # if p1.sceneBoundingRect().contains(pos):
+        #     #     mousePoint = vb.mapSceneToView(pos)
+        #     #     index = int(mousePoint.x())
+        #     #     if index > 0 and index < len(data1):
+        #     #         label.setText(
+        #     #             "<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (
+        #     #             mousePoint.x(), data1[index], data2[index]))
+        #     #     vLine.setPos(mousePoint.x())
+        #     #     hLine.setPos(mousePoint.y())
+        #
+        # proxy = pg.SignalProxy(self.viewer.m_layer_view_widget.scene().sigMouseMoved, rateLimit=60, slot=mouseMoved)
+        # pass
 
     def load_settings(self):
         settings = QSettings('B260', 'spatial_ops')
@@ -177,12 +243,16 @@ class OmeViewer(QtGui.QWidget):
         self.update_umap()
 
     def update_umap(self):
-        reducer, umap_results = PlateUMAPLoader(self.current_plate).load_data()
+        reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
         rf = self.current_plate.get_region_features()
         current_channel = self.gui_controls.channel_slider.value()
         self.plot_widget.mpl_canvas.clear_canvas()
         axes = self.plot_widget.axes()
-        axes.scatter(umap_results[:, 0], umap_results[:, 1], c=rf.sum[:, current_channel])
+        self.current_points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
+        self.scatter_plot = axes.scatter(umap_results[:, 0], umap_results[:, 1], c=original_data[:, current_channel])
+        axes.set_aspect('equal')
+        self.mouse_circle_path = matplotlib.patches.Circle((0.0, 0.0), 1, alpha=0.2, fc='yellow')
+        # axes.add_patch(self.mouse_circle_path)
         self.plot_widget.mpl_canvas.draw()
 
 

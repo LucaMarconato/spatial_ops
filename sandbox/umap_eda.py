@@ -14,13 +14,14 @@ from spatial_ops.lazy_loader import PickleLazyLoader
 
 class PlateUMAPLoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
-        return 'plate_umap_of_sum'
+        return 'plate_umap_of_mean'
 
     def precompute(self):
         rf = self.associated_instance.get_region_features()
         reducer = umap.UMAP(verbose=True, n_components=2)
-        umap_result = reducer.fit_transform(rf.sum)
-        data = (reducer, umap_result)
+        original_data = rf.mean
+        umap_result = reducer.fit_transform(original_data)
+        data = (reducer, umap_result, original_data)
         return data
 
 
