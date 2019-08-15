@@ -1,5 +1,3 @@
-from typing import List
-
 import matplotlib.cm
 import numpy as np
 from layer_viewer import LayerViewerWidget
@@ -82,22 +80,9 @@ class OmeViewer(LayerViewerWidget):
         self.ome_layer.ctrl_widget().channel_selector.setValue(47)
         self.load_settings()
 
+        # proxy = pg.SignalProxy(self.plot_widget.scene().sigMouseMoved, rateLimit=60, slot=lambda x: print('self.mouseMoved'))
+        self.plot_widget.scene().sigMouseMoved.connect(lambda x: self.mouseMoved(x))
         # self.cid = self.plot_widget.mpl_canvas.mpl_connect('motion_notify_event', self)
-
-    def __call__(self, event):
-        if event.xdata is None and event.ydata is not None or event.xdata is not None and event.ydata is None:
-            raise Exception(f'event.xdata = {event.xdata}, event.ydata = {event.ydata}')
-
-        if event.xdata is None:
-            self.mouse_circle_path.set_alpha(0.0)
-        else:
-            self.mouse_circle_path.set_center((event.xdata, event.ydata))
-            self.mouse_circle_path.set_alpha(0.2)
-
-        # self.plot_widget.mpl_canvas.draw()
-        indices = self.get_indices_of_selected_points()
-        self.highlight_selected_cells(indices)
-        # print(event)
 
     def highlight_selected_cells(self, indices):
         # indices_selected = indices
@@ -117,34 +102,8 @@ class OmeViewer(LayerViewerWidget):
 
         self.masks_layer.lut = lut
         self.masks_layer.update_data(self.masks_layer.m_data)
-        pass
 
-    def get_indices_of_selected_points(self) -> List[int]:
-        # this does not work
-        # contained = self.mouse_circle_path.contains_points(self.current_points)
-        # to_return = [i for i, b in enumerate(contained) if b is True]
-        # print(len(contained))
-        # print(len(to_return))
-        # print('')
-        c = self.mouse_circle_path.center
-        l = [i for i, (x, y) in enumerate(self.current_points) if (x - c[0]) ** 2 + (y - c[1]) ** 2 < 1]
-        return l
-
-        # def mouseMoved(evt):
-        #     pos = evt[0]  ## using signal proxy turns original arguments into a tuple
-        #     print(pos)
-        #     # if p1.sceneBoundingRect().contains(pos):
-        #     #     mousePoint = vb.mapSceneToView(pos)
-        #     #     index = int(mousePoint.x())
-        #     #     if index > 0 and index < len(data1):
-        #     #         label.setText(
-        #     #             "<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (
-        #     #             mousePoint.x(), data1[index], data2[index]))
-        #     #     vLine.setPos(mousePoint.x())
-        #     #     hLine.setPos(mousePoint.y())
-        #
-        # proxy = pg.SignalProxy(self.m_layer_view_widget.scene().sigMouseMoved, rateLimit=60, slot=mouseMoved)
-        # pass
+    # proxy = pg.SignalProxy(self.m_layer_view_widget.scene().sigMouseMoved, rateLimit=60, slot=mouseMoved)
 
     def load_settings(self):
         settings = QtCore.QSettings('B260', 'spatial_ops')
@@ -261,17 +220,31 @@ class OmeViewer(LayerViewerWidget):
             # self.scatter_plot_item.setData(spots)
             self.scatter_plot_item.setData(pos=umap_results, brush=brushes)
             self.plot_widget.clear()
+            self.plot_widget.disableAutoRange()
+            self.plot_widget.hideButtons()
+            # self.plot_widget.autoRange()
+            self.plot_widget.setRange(xRange=[min(umap_results[:, 0]), max(umap_results[:, 0])],
+                                      yRange=[min(umap_results[:, 1]), max(umap_results[:, 1])])
             self.plot_widget.addItem(self.scatter_plot_item)
+
+            self.roi_scatter_plot_item = pg.ScatterPlotItem(size=100.0, pen=pg.mkPen(None),
+                                                            brush=pg.mkBrush((255, 255, 255, 100)), pxMode=True)
+            self.roi_scatter_plot_item.setData(pos=[(0, 0)])
+            self.plot_widget.addItem(self.roi_scatter_plot_item, pxMode=True)
+
+            # self.plot_widget.setData(x, y, symbol='o', size=arrayOfSizes, brush=(255, 255, 255, 100), pxMode=True)
+            # circle_roi = pg.CircleROI([0, 0], [20, 20], pen=(4, 9))
+            # self.plot_widget.addItem(circle_roi)
         else:
             import time
             start = time.time()
             # self.plot_widget.disableAutoRange()
-            for i in range(100):
-                self.scatter_plot_item.data[i][5] = QtGui.QBrush(QtGui.QColor(255, 0, 0))
-                self.scatter_plot_item.data
-            self.scatter_plot_item.invalidate()
-            self.scatter_plot_item.update()
-            # self.scatter_plot_item.setBrush(brushes)
+            # for i in range(100):
+            #     self.scatter_plot_item.data[i][5] = QtGui.QBrush(QtGui.QColor(255, 0, 0))
+            #     self.scatter_plot_item.data
+            # self.scatter_plot_item.invalidate()
+            # self.scatter_plot_item.update()
+            self.scatter_plot_item.setBrush(brushes)
             # self.plot_widget.autoRange()
             # [QtGui.QBrush(QtGui.QColor(255, 0, 0))] * umap_results.shape[0]
             # self.scatter_plot_item.setData(pos=umap_results, brush=brushes)
@@ -281,12 +254,39 @@ class OmeViewer(LayerViewerWidget):
 
         # self.plot_widget.mpl_canvas.clear_canvas()
         # axes = self.plot_widget.axes()
-        # self.current_points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
+        self.current_points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
         # self.scatter_plot = axes.scatter(umap_results[:, 0], umap_results[:, 1], c=original_data[:, current_channel])
         # axes.set_aspect('equal')
         # self.mouse_circle_path = matplotlib.patches.Circle((0.0, 0.0), 1, alpha=0.2, fc='yellow')
         # # axes.add_patch(self.mouse_circle_path)
         # self.plot_widget.mpl_canvas.draw()
+
+    def mapDistanceSceneToView(self, l: float):
+        fake_point0 = QtCore.QPointF(l, l)
+        fake_point1 = QtCore.QPointF(0, 0)
+        fake_plot_point0 = self.plot_widget.vb.mapSceneToView(fake_point0)
+        fake_plot_point1 = self.plot_widget.vb.mapSceneToView(fake_point1)
+        l_x = abs(fake_plot_point1.x() - fake_plot_point0.x())
+        l_y = abs(fake_plot_point1.y() - fake_plot_point0.y())
+        return l_x, l_y
+
+    def mouseMoved(self, event):
+        # coord = event[0]  ## using signal proxy turns original arguments into a tuple
+        coord = event
+        plot_coord = self.plot_widget.vb.mapSceneToView(coord)
+        plot_coord = (plot_coord.x(), plot_coord.y())
+        self.roi_scatter_plot_item.setData(pos=[plot_coord])
+        pixel_radius = 100.0
+
+        l_x, l_y = self.mapDistanceSceneToView(pixel_radius)
+        l = [i for i, (x, y) in enumerate(self.current_points) if
+             (x - plot_coord[0]) ** 2 / (l_x * l_x * 0.25) + (y - plot_coord[1]) ** 2 / (l_y * l_y * 0.25) < 1]
+        print(l)
+        for i in l:
+            print(self.current_points[i])
+        print(f'l_x = {l_x}, l_y = {l_y}')
+        print(f'plot_coord = {plot_coord}')
+        self.highlight_selected_cells(l)
 
 
 # start qt event loop unless running in interactive mode or using pyside.
