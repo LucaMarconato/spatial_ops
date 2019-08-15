@@ -5,3 +5,4 @@ ideas/
 slides/
 __pycache__/
 pickles/
+torch_model

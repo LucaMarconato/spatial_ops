@@ -1,18 +1,14 @@
-import pyqtgraph as pg
-from PyQt5.QtCore import QSettings
+from typing import List
+
+import matplotlib.cm
+import numpy as np
 from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
+from pyqtgraph.Qt import QtGui, QtCore
 
 from sandbox.gui_controls import GuiControls
-
-app = pg.mkQApp()
-
-from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
 from sandbox.umap_eda import PlateUMAPLoader
-
-from spatial_ops.layer_plot_widget import LayerPlotWidget
-import matplotlib.patches
-from typing import List
+from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
 
 
 class OmeViewer(QtGui.QWidget):
@@ -23,7 +19,6 @@ class OmeViewer(QtGui.QWidget):
         self.ome_layer = None
         self.masks_layer = None
         # self.viewer.show()
-
         # on the left the layout we have, on the right the one we want to obtain
         # |--------------|      |--------------|
         # |              |      |        ctrl0 |
@@ -33,12 +28,12 @@ class OmeViewer(QtGui.QWidget):
         # self.plot_widget = LayerPlotWidget()
         if self.viewer.gui_style != 'splitter':
             raise Exception('can only insert the plot widget if the gui of layer viewer is using splitters')
-        self.inner_container = QWidget()
+        self.inner_container = QtGui.QWidget()
         self.vhbox = QtGui.QVBoxLayout()
         self.viewer.splitter.replaceWidget(1, self.inner_container)
         self.inner_container.setLayout(self.vhbox)
         self.inner_splitter = QtGui.QSplitter()
-        self.inner_splitter.setOrientation(Qt.Vertical)
+        self.inner_splitter.setOrientation(QtCore.Qt.Vertical)
         self.vhbox.addWidget(self.inner_splitter)
         self.inner_splitter.addWidget(self.viewer.m_layer_ctrl_widget)
         self.graphics_layout_widget = pg.GraphicsLayoutWidget()
@@ -153,14 +148,14 @@ class OmeViewer(QtGui.QWidget):
         # pass
 
     def load_settings(self):
-        settings = QSettings('B260', 'spatial_ops')
+        settings = QtCore.QSettings('B260', 'spatial_ops')
         patient_source = settings.value('patient_source', PatientSource(0).value, int)
         patient_pid = settings.value('patient_pid', 1, int)
         self.gui_controls.patient_source_combo_box.setCurrentIndex(patient_source)
         self.gui_controls.patient_pid_spin_box.setValue(patient_pid)
 
     def save_settings(self):
-        settings = QSettings('B260', 'spatial_ops')
+        settings = QtCore.QSettings('B260', 'spatial_ops')
         settings.setValue('patient_source', self.current_patient.source.value)
         settings.setValue('patient_pid', self.current_patient.pid)
 
@@ -184,6 +179,9 @@ class OmeViewer(QtGui.QWidget):
         patient_information = f'source: {self.current_patient.source}, pid: {self.current_patient.pid}'
         # when changing the value of the combobox self.current_patient.pid will change
         new_pid = self.current_patient.pid
+        # we create one scatterplot of the umap of a specific channel for the current patient, when we change channel
+        # we do not need to recreate the scatterplot but just to change the colormap
+        self.first_umap_shown = False
         if self.current_patient.source == PatientSource.basel:
             self.gui_controls.patient_source_combo_box.setCurrentIndex(0)
             self.gui_controls.patient_pid_spin_box.setValue(new_pid)
@@ -247,11 +245,40 @@ class OmeViewer(QtGui.QWidget):
     def update_umap(self):
         reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
         current_channel = self.gui_controls.channel_slider.value()
-
-        s1 = pg.ScatterPlotItem(size=10, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 255, 120))
-        spots = [{'pos': umap_results[i, :], 'data': original_data[i, current_channel]} for i in range(umap_results.shape[0])]
-        s1.addPoints(spots)
-        self.plot_widget.addItem(s1)
+        a = min(original_data[:, current_channel])
+        b = max(original_data[:, current_channel])
+        colormap = matplotlib.cm.viridis
+        positions = np.linspace(a, b, len(colormap.colors), endpoint=True)
+        q_colormap = pg.ColorMap(pos=positions, color=colormap.colors)
+        color_for_points = q_colormap.map(original_data[:, current_channel])
+        brushes = [QtGui.QBrush(QtGui.QColor(*color_for_points[i, :].tolist())) for i in
+                   range(color_for_points.shape[0])]
+        if not self.first_umap_shown:
+            self.first_umap_shown = True
+            self.scatter_plot_item = pg.ScatterPlotItem(size=10,
+                                                        pen=pg.mkPen(None))  # brush=pg.mkBrush(255, 255, 255, 120)
+            self.scatter_plot_item.clear()
+            # spots = [{'pos': umap_results[i, :], 'data': original_data[i, current_channel], 'brush': brushes[i]} for i in range(original_data.shape[0])]
+            # self.scatter_plot_item.setData(spots)
+            self.scatter_plot_item.setData(pos=umap_results, brush=brushes)
+            self.plot_widget.clear()
+            self.plot_widget.addItem(self.scatter_plot_item)
+        else:
+            import time
+            start = time.time()
+            # self.plot_widget.disableAutoRange()
+            for i in range(100):
+                self.scatter_plot_item.data[i][5] = QtGui.QBrush(QtGui.QColor(255, 0, 0))
+                self.scatter_plot_item.data
+            self.scatter_plot_item.invalidate()
+            self.scatter_plot_item.update()
+            # self.scatter_plot_item.setBrush(brushes)
+            # self.plot_widget.autoRange()
+            # [QtGui.QBrush(QtGui.QColor(255, 0, 0))] * umap_results.shape[0]
+            # self.scatter_plot_item.setData(pos=umap_results, brush=brushes)
+            # self.scatter_plot_item.setBrush()
+            # self.scatter_plot_item.update()
+            print(f': {time.time() - start}')
 
         # self.plot_widget.mpl_canvas.clear_canvas()
         # axes = self.plot_widget.axes()
@@ -263,48 +290,16 @@ class OmeViewer(QtGui.QWidget):
         # self.plot_widget.mpl_canvas.draw()
 
 
-# def inspect_plate(plate):
-#
-#
-#     reducer, result = PlateUMAPLoader(plate).load_data()
-#     color_channel = 5
-#     rf = plate.get_region_features()
-#     axes = viewer.axes()
-#     axes.scatter(result[:, 0], result[:, 1], c=rf.sum[:, color_channel])
-#     # viewer.plot_canvas().colorbar()
-#     viewer.draw_plot_canvas()
-#
-#     # axes.show()
-#
-#     # layer = MultiChannelImageLayer(name='PCA-IMG', data=Y[...])
-#     # viewer.addLayer(layer=layer)
-#     # layer.ctrl_widget().toggle_eye.setState(False)
-#
-
-#
-# plate = jfd.patients[1].plates[0]
-# inspect_plate(plate)
-
-# layer = RGBImageLayer(name='img', data=image[...])
-# viewer.addLayer(layer=layer)
-
-# labels = numpy.zeros(image.shape[0:2], dtype='uint8')
-# label_layer = LabelLayer(name='labels', data=None)
-# viewer.addLayer(layer=label_layer)
-# viewer.setData('labels',image=labels)
-
-# layer.setOpacity(0.5)
-
-# # viewer.setLayerVisibility('img', False)
-# viewer.setLayerOpacity('img', 0.4)
-# viewer.setLayerOpacity('img', 0.4)
-
 # start qt event loop unless running in interactive mode or using pyside.
 if __name__ == '__main__':
     import sys
 
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+        app = pg.mkQApp()
+        viewer = OmeViewer()
+        viewer.setWindowTitle('TODO: avoid the creation of this window')
+        viewer.show()
         # QtGui.QApplication.instance().exec_()
-        app = QtGui.QApplication(sys.argv)
-        OmeViewer()
+        # app = QtGui.QApplication(sys.argv)
+        # OmeViewer()
         sys.exit(app.exec_())

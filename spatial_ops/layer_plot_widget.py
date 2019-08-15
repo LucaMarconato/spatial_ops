@@ -1,8 +1,7 @@
 import matplotlib
-from pyqtgraph.Qt import QtGui
+from pyqtgraph.Qt import QtGui, QtWidgets
 
 matplotlib.use('Qt5Agg')
-from PyQt5 import QtWidgets
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -70,3 +69,4 @@ if __name__ == '__main__':
     widget.mpl_canvas.draw()
 
     sys.exit(app.exec_())
+
