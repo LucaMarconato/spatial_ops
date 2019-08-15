@@ -11,11 +11,10 @@ from sandbox.umap_eda import PlateUMAPLoader
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
 
 
-class OmeViewer(QtGui.QWidget):
+class OmeViewer(LayerViewerWidget):
     def __init__(self):
-        QtGui.QWidget.__init__(self)
-        self.viewer = LayerViewerWidget()
-        self.viewer.setWindowTitle('ome viewer')
+        super().__init__()
+        self.setWindowTitle('ome viewer')
         self.ome_layer = None
         self.masks_layer = None
         # self.viewer.show()
@@ -26,16 +25,16 @@ class OmeViewer(QtGui.QWidget):
         # |              |      |        plot  |
         # |--------------|      |--------------|
         # self.plot_widget = LayerPlotWidget()
-        if self.viewer.gui_style != 'splitter':
+        if self.gui_style != 'splitter':
             raise Exception('can only insert the plot widget if the gui of layer viewer is using splitters')
         self.inner_container = QtGui.QWidget()
         self.vhbox = QtGui.QVBoxLayout()
-        self.viewer.splitter.replaceWidget(1, self.inner_container)
+        self.splitter.replaceWidget(1, self.inner_container)
         self.inner_container.setLayout(self.vhbox)
         self.inner_splitter = QtGui.QSplitter()
         self.inner_splitter.setOrientation(QtCore.Qt.Vertical)
         self.vhbox.addWidget(self.inner_splitter)
-        self.inner_splitter.addWidget(self.viewer.m_layer_ctrl_widget)
+        self.inner_splitter.addWidget(self.m_layer_ctrl_widget)
         self.graphics_layout_widget = pg.GraphicsLayoutWidget()
         self.inner_splitter.addWidget(self.graphics_layout_widget)
         self.plot_widget = self.graphics_layout_widget.addPlot()
@@ -144,7 +143,7 @@ class OmeViewer(QtGui.QWidget):
         #     #     vLine.setPos(mousePoint.x())
         #     #     hLine.setPos(mousePoint.y())
         #
-        # proxy = pg.SignalProxy(self.viewer.m_layer_view_widget.scene().sigMouseMoved, rateLimit=60, slot=mouseMoved)
+        # proxy = pg.SignalProxy(self.m_layer_view_widget.scene().sigMouseMoved, rateLimit=60, slot=mouseMoved)
         # pass
 
     def load_settings(self):
@@ -204,7 +203,7 @@ class OmeViewer(QtGui.QWidget):
         if self.ome_layer is None:
             start = time.time()
             self.ome_layer = MultiChannelImageLayer(name='ome', data=ome[...])
-            self.viewer.addLayer(layer=self.ome_layer)
+            self.addLayer(layer=self.ome_layer)
             print(f'creating ome layer: {time.time() - start}')
         else:
             start = time.time()
@@ -218,7 +217,7 @@ class OmeViewer(QtGui.QWidget):
         if self.masks_layer is None:
             start = time.time()
             self.masks_layer = ObjectLayer(name='mask', data=masks)
-            self.viewer.add_layer(layer=self.masks_layer)
+            self.add_layer(layer=self.masks_layer)
             self.masks_layer.ctrl_widget().bar.set_fraction(0.2)
             print(f'creating masks layer: {time.time() - start}')
         else:
@@ -297,7 +296,6 @@ if __name__ == '__main__':
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         app = pg.mkQApp()
         viewer = OmeViewer()
-        viewer.setWindowTitle('TODO: avoid the creation of this window')
         viewer.show()
         # QtGui.QApplication.instance().exec_()
         # app = QtGui.QApplication(sys.argv)
