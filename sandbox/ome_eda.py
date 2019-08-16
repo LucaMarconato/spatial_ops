@@ -66,6 +66,8 @@ class OmeViewer(LayerViewerWidget):
         self.gui_controls.channel_name_combo_box.currentIndexChanged.connect(
             lambda x: self.on_channel_name_combo_box_current_index_changed(x)
         )
+        self.gui_controls.crosshair_radio_button.toggled.connect(lambda x: self.crosshair_toggled(x))
+        self.gui_controls.lasso_radio_button.toggled.connect(lambda x: self.lasso_toggled(x))
 
         self.set_patient(jfd.patients[20])
 
@@ -201,6 +203,12 @@ class OmeViewer(LayerViewerWidget):
 
         points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
         self.crosshair_manager.set_points(points)
+
+    def crosshair_toggled(self, state):
+        self.crosshair_manager.set_enabled(state)
+
+    def lasso_toggled(self, state):
+        pass
 
 
 # start qt event loop unless running in interactive mode or using pyside.

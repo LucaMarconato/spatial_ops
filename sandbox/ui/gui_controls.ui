@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1531</width>
-    <height>533</height>
+    <width>1782</width>
+    <height>323</height>
    </rect>
   </property>
   <property name="maximumSize">
    <size>
     <width>16777215</width>
-    <height>16777215</height>
+    <height>323</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -24,22 +24,8 @@
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
       <layout class="QGridLayout" name="gridLayout">
-       <item row="0" column="2">
-        <widget class="QLabel" name="label_3">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="text">
-          <string>Plate</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLabel" name="label_2">
-         <property name="text">
-          <string>PID</string>
-         </property>
-        </widget>
+       <item row="1" column="1">
+        <widget class="QSpinBox" name="patient_pid_spin_box"/>
        </item>
        <item row="1" column="0">
         <widget class="QComboBox" name="patient_source_combo_box">
@@ -58,8 +44,15 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="1">
-        <widget class="QSpinBox" name="patient_pid_spin_box"/>
+       <item row="0" column="2">
+        <widget class="QLabel" name="label_3">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>Plate</string>
+         </property>
+        </widget>
        </item>
        <item row="0" column="3" rowspan="2">
         <widget class="QLabel" name="label_4">
@@ -82,11 +75,21 @@
          <property name="enabled">
           <bool>true</bool>
          </property>
+         <property name="focusPolicy">
+          <enum>Qt::ClickFocus</enum>
+         </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
          <property name="tickPosition">
           <enum>QSlider::TicksBothSides</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>PID</string>
          </property>
         </widget>
        </item>
@@ -169,10 +172,58 @@
        </item>
       </layout>
      </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Mouse interactive mode</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QRadioButton" name="crosshair_radio_button">
+            <property name="text">
+             <string>Crosshair</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="lasso_radio_button">
+            <property name="text">
+             <string>Lasso</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </item>
     </layout>
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>lasso_radio_button</tabstop>
+  <tabstop>patient_pid_spin_box</tabstop>
+  <tabstop>crosshair_radio_button</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

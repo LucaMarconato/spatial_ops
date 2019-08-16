@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore
+from pyqtgraph.Qt import QtCore, QtGui
 
 
 class CrosshairManager:
@@ -27,6 +27,7 @@ class CrosshairManager:
                                                         brush=pg.mkBrush((255, 255, 255, 100)), pxMode=True)
         self.roi_scatter_plot_item.setData(pos=[(0, 0)])
         self.plot_widget.addItem(self.roi_scatter_plot_item)  # , pxMode=True
+        self.enabled = True
 
     def mapDistanceSceneToView(self, l: float):
         fake_point0 = QtCore.QPointF(l, l)
@@ -38,11 +39,13 @@ class CrosshairManager:
         return l_x, l_y
 
     def mouse_moved(self, event):
+        if not self.enabled:
+            return
         # coord = event[0]  ## using signal proxy turns original arguments into a tuple
         coord = event
         plot_coord = self.plot_widget.vb.mapSceneToView(coord)
         plot_coord = (plot_coord.x(), plot_coord.y())
-        self.roi_scatter_plot_item.setData(pos=[plot_coord])
+        self.roi_scatter_plot_item.setData(pos=[plot_coord], brush=pg.mkBrush((255, 255, 255, 100)))
         pixel_radius = 100.0
 
         l_x, l_y = self.mapDistanceSceneToView(pixel_radius)
@@ -57,3 +60,15 @@ class CrosshairManager:
 
     def set_points(self, points: List[Tuple[int]]):
         self.points = points
+
+    def set_visible(self, visible: bool):
+        if visible:
+            # without the list I get a crash and looking at the source code this fixed the problem
+            self.roi_scatter_plot_item.setBrush([pg.mkBrush(255, 255, 255, 100)])
+        else:
+            self.roi_scatter_plot_item.setBrush([pg.mkBrush((255, 255, 255, 0))])
+
+    def set_enabled(self, enabled: bool):
+        self.set_visible(enabled)
+        self.enabled = enabled
+
