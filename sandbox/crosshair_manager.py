@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
+from pyqtgraph.Qt import QtCore
 
 
 class CrosshairManager:
@@ -10,18 +10,14 @@ class CrosshairManager:
         # proxy = pg.SignalProxy(self.plot_widget.scene().sigMouseMoved, rateLimit=60, slot=lambda x: print('self.mouseMoved'))
         self.plot_widget = plot_widget
         self.callback = callback
+        self.enabled = False
+        self.plot_widget.scene().sigMouseMoved.connect(lambda x: self.mouse_moved(x))
 
+    def add_to_plot(self):
         point_diameter = 100.0
         self.plot_widget.disableAutoRange()
         # to hide the auto range button
         self.plot_widget.hideButtons()
-        # this hack is used to remove previous connections, and avoid the error that is triggered when still no connection has been made
-        try:
-            self.plot_widget.scene().sigMouseMoved.disconnect()
-        except TypeError:
-            print('a')
-            pass
-        self.plot_widget.scene().sigMouseMoved.connect(lambda x: self.mouse_moved(x))
 
         self.roi_scatter_plot_item = pg.ScatterPlotItem(size=point_diameter, pen=pg.mkPen(None),
                                                         brush=pg.mkBrush((255, 255, 255, 100)), pxMode=True)
@@ -39,6 +35,7 @@ class CrosshairManager:
         return l_x, l_y
 
     def mouse_moved(self, event):
+        # print(event)
         if not self.enabled:
             return
         # coord = event[0]  ## using signal proxy turns original arguments into a tuple
@@ -71,4 +68,3 @@ class CrosshairManager:
     def set_enabled(self, enabled: bool):
         self.set_visible(enabled)
         self.enabled = enabled
-

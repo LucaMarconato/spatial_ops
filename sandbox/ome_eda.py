@@ -7,6 +7,7 @@ from layer_viewer.layers import *
 from pyqtgraph.Qt import QtGui, QtCore
 
 from sandbox.crosshair_manager import CrosshairManager
+from sandbox.lasso_manager import LassoManager
 from sandbox.gui_controls import GuiControls
 from sandbox.umap_eda import PlateUMAPLoader
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
@@ -38,6 +39,7 @@ class OmeViewer(LayerViewerWidget):
         self.inner_splitter.addWidget(self.graphics_layout_widget)
         self.plot_widget = self.graphics_layout_widget.addPlot()
 
+
         self.gui_controls = GuiControls()
         self.inner_splitter.insertWidget(1, self.gui_controls)
         self.inner_splitter.show()
@@ -48,6 +50,9 @@ class OmeViewer(LayerViewerWidget):
         sizes[0] = a * ratio
         sizes[2] = a * (1 - ratio)
         self.inner_splitter.setSizes(sizes)
+
+        self.crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells)
+        self.lasso_manager = LassoManager(self.plot_widget, self.highlight_selected_cells)
 
         patients_count = len(jfd.patients)
         self.gui_controls.patient_slider.setMaximum(patients_count - 1)
@@ -197,7 +202,11 @@ class OmeViewer(LayerViewerWidget):
             self.plot_widget.setRange(xRange=[min(umap_results[:, 0]), max(umap_results[:, 0])],
                                       yRange=[min(umap_results[:, 1]), max(umap_results[:, 1])])
             self.plot_widget.addItem(self.scatter_plot_item)
-            self.crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells)
+            self.crosshair_manager.add_to_plot()
+            self.lasso_manager.add_to_plot()
+
+            self.crosshair_manager.set_enabled(self.gui_controls.crosshair_radio_button.isChecked())
+            self.lasso_manager.set_enabled(self.gui_controls.lasso_radio_button.isChecked())
         else:
             self.scatter_plot_item.setBrush(brushes)
 
@@ -208,7 +217,7 @@ class OmeViewer(LayerViewerWidget):
         self.crosshair_manager.set_enabled(state)
 
     def lasso_toggled(self, state):
-        pass
+        self.lasso_manager.set_enabled(state)
 
 
 # start qt event loop unless running in interactive mode or using pyside.
