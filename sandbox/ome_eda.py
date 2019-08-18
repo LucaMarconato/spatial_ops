@@ -7,8 +7,8 @@ from layer_viewer.layers import *
 from pyqtgraph.Qt import QtGui, QtCore
 
 from sandbox.crosshair_manager import CrosshairManager
-from sandbox.lasso_manager import LassoManager
 from sandbox.gui_controls import GuiControls
+from sandbox.lasso_manager import LassoManager
 from sandbox.umap_eda import PlateUMAPLoader
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
 
@@ -38,7 +38,7 @@ class OmeViewer(LayerViewerWidget):
         self.graphics_layout_widget = pg.GraphicsLayoutWidget()
         self.inner_splitter.addWidget(self.graphics_layout_widget)
         self.plot_widget = self.graphics_layout_widget.addPlot()
-
+        self.current_points = []
 
         self.gui_controls = GuiControls()
         self.inner_splitter.insertWidget(1, self.gui_controls)
@@ -51,8 +51,8 @@ class OmeViewer(LayerViewerWidget):
         sizes[2] = a * (1 - ratio)
         self.inner_splitter.setSizes(sizes)
 
-        self.crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells)
-        self.lasso_manager = LassoManager(self.plot_widget, self.highlight_selected_cells)
+        self.crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells, self)
+        self.lasso_manager = LassoManager(self.plot_widget, self.highlight_selected_cells, self)
 
         patients_count = len(jfd.patients)
         self.gui_controls.patient_slider.setMaximum(patients_count - 1)
@@ -85,10 +85,12 @@ class OmeViewer(LayerViewerWidget):
         self.load_settings()
 
     def highlight_selected_cells(self, indices):
-        indices_not_selected = list(set(range(len(self.crosshair_manager.points))).difference(indices))
+        indices_not_selected = list(set(range(len(self.current_points))).difference(indices))
+        if self.masks_layer is None:
+            return
         lut = self.masks_layer.lut
-        if len(lut) != len(self.crosshair_manager.points):
-            lut_size = len(self.crosshair_manager.points)
+        if len(lut) != len(self.current_points):
+            lut_size = len(self.current_points)
             s4 = lut_size * 4
             lut = numpy.random.randint(low=0, high=255, size=s4)
             lut = lut.reshape([lut_size, 4])
@@ -202,8 +204,9 @@ class OmeViewer(LayerViewerWidget):
             self.plot_widget.setRange(xRange=[min(umap_results[:, 0]), max(umap_results[:, 0])],
                                       yRange=[min(umap_results[:, 1]), max(umap_results[:, 1])])
             self.plot_widget.addItem(self.scatter_plot_item)
-            self.crosshair_manager.add_to_plot()
-            self.lasso_manager.add_to_plot()
+            self.plot_widget.disableAutoRange()
+            # to hide the auto range button
+            self.plot_widget.hideButtons()
 
             self.crosshair_manager.set_enabled(self.gui_controls.crosshair_radio_button.isChecked())
             self.lasso_manager.set_enabled(self.gui_controls.lasso_radio_button.isChecked())
@@ -211,7 +214,7 @@ class OmeViewer(LayerViewerWidget):
             self.scatter_plot_item.setBrush(brushes)
 
         points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
-        self.crosshair_manager.set_points(points)
+        self.current_points = points
 
     def crosshair_toggled(self, state):
         self.crosshair_manager.set_enabled(state)

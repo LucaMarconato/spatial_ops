@@ -197,7 +197,7 @@ class JacksonFischerDataset:
         if os.path.isfile(pickle_path) and not dont_load_from_pickles:
             print('unpickling data... ', end='')
             cls.patients = CustomUnpickler(open(pickle_path, 'rb')).load()
-            print('DONE')
+            print('done')
         else:
             basel_patient_ids = set(basel_patient_data.PID)
             zurich_patient_ids = set(zurich_patient_data.PID)
