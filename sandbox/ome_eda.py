@@ -6,9 +6,8 @@ from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 from pyqtgraph.Qt import QtGui, QtCore
 
-from sandbox.crosshair_manager import CrosshairManager
 from sandbox.gui_controls import GuiControls
-from sandbox.lasso_manager import LassoManager
+from sandbox.interactive_plots import InteractivePlotsManager
 from sandbox.umap_eda import PlateUMAPLoader, PlateTSNELoader
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
 
@@ -35,19 +34,14 @@ class OmeViewer(LayerViewerWidget):
         self.inner_splitter.setOrientation(QtCore.Qt.Vertical)
         self.vhbox.addWidget(self.inner_splitter)
         self.inner_splitter.addWidget(self.m_layer_ctrl_widget)
-        self.graphics_layout_widget = pg.GraphicsLayoutWidget()
-        self.inner_splitter.addWidget(self.graphics_layout_widget)
-        self.plot_widget = self.graphics_layout_widget.addPlot()
-        self.current_points = []
+        self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
+        self.inner_splitter.addWidget(self.interactive_plots_manager)
 
         self.gui_controls = GuiControls()
         self.inner_splitter.insertWidget(1, self.gui_controls)
         self.inner_splitter.show()
 
         self.balance_layout()
-
-        self.umap_crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells, self)
-        self.umap_lasso_manager = LassoManager(self.plot_widget, self.highlight_selected_cells, self)
 
         patients_count = len(jfd.patients)
         self.gui_controls.patient_slider.setMaximum(patients_count - 1)
@@ -89,12 +83,14 @@ class OmeViewer(LayerViewerWidget):
         self.inner_splitter.setSizes(sizes)
 
     def highlight_selected_cells(self, indices):
-        indices_not_selected = list(set(range(len(self.current_points))).difference(indices))
+        # all the plots have the same number of points, because they are different embeddings of the same data
+        points_count = len(self.interactive_plots_manager.interactive_plots[0].points)
+        indices_not_selected = list(set(range(points_count)).difference(indices))
         if self.masks_layer is None:
             return
         lut = self.masks_layer.lut
-        if len(lut) != len(self.current_points):
-            lut_size = len(self.current_points)
+        if len(lut) != points_count:
+            lut_size = points_count
             s4 = lut_size * 4
             lut = numpy.random.randint(low=0, high=255, size=s4)
             lut = lut.reshape([lut_size, 4])
@@ -157,6 +153,7 @@ class OmeViewer(LayerViewerWidget):
 
         self.current_plate = self.current_patient.plates[0]
         ome = self.current_plate.get_ome()
+        self.interactive_plots_manager.clear_plots()
         self.update_embeddings()
 
         if self.ome_layer is None:
@@ -203,51 +200,31 @@ class OmeViewer(LayerViewerWidget):
         brushes = [QtGui.QBrush(QtGui.QColor(*color_for_points[i, :].tolist())) for i in
                    range(color_for_points.shape[0])]
 
-        if not self.first_umap_shown:
-            self.first_umap_shown = True
-            # this function must be called because the lasso manager class replaces a default method for dealing with
-            # the mouse with a custom one, if when creating a new plot (i.e. switching to a new patient) the default
-            # method is not restored, then in the case in which the user returns again to the old patient,
-            # the default method would still result overridden, making it impossible to pan in the crosshair mode (a
-            # lasso is drawn instead)
-            self.umap_lasso_manager.set_enabled(False)
-            self.scatter_plot_item = pg.ScatterPlotItem(size=10,
-                                                        pen=pg.mkPen(None))
-            self.scatter_plot_item.setData(pos=data, brush=brushes)
-            self.plot_widget.clear()
-            self.plot_widget.setRange(xRange=[min(data[:, 0]), max(data[:, 0])],
-                                      yRange=[min(data[:, 1]), max(data[:, 1])])
-            self.plot_widget.addItem(self.scatter_plot_item)
-            self.plot_widget.disableAutoRange()
-            # to hide the auto range button
-            self.plot_widget.hideButtons()
-
-            self.umap_crosshair_manager.set_enabled(self.gui_controls.crosshair_radio_button.isChecked())
-            self.umap_lasso_manager.set_enabled(self.gui_controls.lasso_radio_button.isChecked())
-        else:
-            self.scatter_plot_item.setBrush(brushes)
-
-        points = [[umap_results[i, 0], umap_results[i, 1]] for i in range(umap_results.shape[0])]
-        self.current_points = points
+        self.interactive_plots_manager.interactive_plots[0].show_scatter_plot(umap_results, brushes)
+        self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(tsne_results, brushes)
+        for i in range(2, 16):
+            self.interactive_plots_manager.interactive_plots[i].show_scatter_plot(tsne_results, brushes)
 
     def crosshair_toggled(self, state):
-        self.umap_crosshair_manager.set_enabled(state)
+        for interactive_plot in self.interactive_plots_manager.interactive_plots:
+            interactive_plot.crosshair_manager.set_enabled(state)
 
     def lasso_toggled(self, state):
-        self.umap_lasso_manager.set_enabled(state)
+        for interactive_plot in self.interactive_plots_manager.interactive_plots:
+            interactive_plot.lasso_manager.set_enabled(state)
 
     def detach_embeddings_toggled(self, state):
         class DetachedEmbeddingsWindow(QtGui.QWidget):
-            def __init__(self, ome_eda, parent=None):
+            def __init__(self, ome_viewer, parent=None):
                 QtGui.QWidget.__init__(self, parent)
-                self.ome_eda = ome_eda
+                self.ome_viewer = ome_viewer
 
             def closeEvent(self, event):
-                self.ome_eda.gui_controls.outer_layout.addWidget(
-                    self.ome_eda.gui_controls.embedding_view_properties_group_box)
-                self.ome_eda.inner_splitter.addWidget(self.ome_eda.graphics_layout_widget)
-                self.ome_eda.balance_layout()
-                self.ome_eda.gui_controls.detach_embeddings_check_box.setChecked(False)
+                self.ome_viewer.gui_controls.outer_layout.addWidget(
+                    self.ome_viewer.gui_controls.embedding_view_properties_group_box)
+                self.ome_viewer.inner_splitter.addWidget(self.ome_viewer.interactive_plots_manager)
+                self.ome_viewer.balance_layout()
+                self.ome_viewer.gui_controls.detach_embeddings_check_box.setChecked(False)
                 event.accept()  # let the window close
 
         if state:
@@ -255,7 +232,7 @@ class OmeViewer(LayerViewerWidget):
             l = QtGui.QVBoxLayout()
             self.detached_embeddings_window.setLayout(l)
             l.addWidget(self.gui_controls.embedding_view_properties_group_box)
-            l.addWidget(self.graphics_layout_widget)
+            l.addWidget(self.interactive_plots_manager)
             self.detached_embeddings_window.show()
         else:
             self.detached_embeddings_window.close()
