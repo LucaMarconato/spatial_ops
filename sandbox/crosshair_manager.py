@@ -34,7 +34,6 @@ class CrosshairManager:
         return l_x, l_y
 
     def mouse_moved(self, event):
-        # print(event)
         if not self.enabled:
             return
         # coord = event[0]  ## using signal proxy turns original arguments into a tuple
@@ -42,27 +41,32 @@ class CrosshairManager:
         # self.latest_mouse_event = event
         plot_coord = self.plot_item.vb.mapSceneToView(coord)
         plot_coord = (plot_coord.x(), plot_coord.y())
+        plot_range = self.plot_item.viewRange()
+        if not plot_range[0][0] <= plot_coord[0] <= plot_range[0][1]:
+            return
+        if not plot_range[1][0] <= plot_coord[1] <= plot_range[1][1]:
+            return
 
-        if self.roi_scatter_plot_item is not None:
-            self.plot_item.removeItem(self.roi_scatter_plot_item)
+        # if self.roi_scatter_plot_item is not None:
+        #     self.plot_item.removeItem(self.roi_scatter_plot_item)
+        self.interactive_plot.interactive_plots_manager.clear_crosshairs()
         self.roi_scatter_plot_item.setData(pos=[plot_coord])
         self.plot_item.addItem(self.roi_scatter_plot_item)
 
         l_x, l_y = self.mapDistanceSceneToView(self.point_diameter)
         l = [i for i, (x, y) in enumerate(self.interactive_plot.points) if
              (x - plot_coord[0]) ** 2 / (l_x * l_x * 0.25) + (y - plot_coord[1]) ** 2 / (l_y * l_y * 0.25) < 1]
-        self.callback(l)
+        self.callback(l, None)
 
-    def set_visible(self, visible: bool):
-        if not visible:
-            if self.roi_scatter_plot_item is not None:
-                self.plot_item.removeItem(self.roi_scatter_plot_item)
+    def clear_crosshair(self):
+        if self.roi_scatter_plot_item is not None:
+            self.plot_item.removeItem(self.roi_scatter_plot_item)
 
     def set_enabled(self, enabled: bool):
-        self.set_visible(enabled)
         self.enabled = enabled
         if enabled:
             self.roi_scatter_plot_item = pg.ScatterPlotItem(size=self.point_diameter, pen=pg.mkPen(None),
                                                             brush=pg.mkBrush((255, 255, 255, 100)), pxMode=True)
         else:
-            self.callback([])
+            self.clear_crosshair()
+            self.callback([], None)

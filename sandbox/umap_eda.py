@@ -44,10 +44,10 @@ def precompute_tsne_on_single_patient(patient):
 def parallel_precompute_umap():
     with Pool(processes=4) as pool:
         pool.map(precompute_umap_on_single_patient,
-                 iterable=jfd.patients[0:4])
+                 iterable=jfd.patients)
     with Pool(processes=4) as pool:
         pool.map(precompute_tsne_on_single_patient,
-                 iterable=jfd.patients[0:4])
+                 iterable=jfd.patients)
 
 
 if __name__ == '__main__':

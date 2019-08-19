@@ -2,25 +2,29 @@ from typing import List, Tuple
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
-import random
-import string
+
 
 class LassoManager:
     def __init__(self, plot_item, callback, interactive_plot):
         self.plot_item = plot_item
         self.callback = callback
-
-        self.original_mouseDragEvent = None
+        self.enabled = False
         self.lasso_plot_item = None
         self.interactive_plot = interactive_plot
 
-    # def my_mouse_click_event(self, ev):
-    #     print(f'{random.choice(string.ascii_letters)} mouse click')
-    #     self.interactive_plot.interactive_plots_manager.clear_lassos()
-    #     self.callback([])
+    def my_mouse_click_event(self, ev=None):
+        if not self.enabled:
+            return
+        self.interactive_plot.interactive_plots_manager.clear_lassos()
+        self.callback([], self.interactive_plot)
+        # ev is None when this function is called by a lambda which is a slot for the signal of mouse click within
+        # plot points
+        if ev is not None:
+            ev.accept()
 
     def my_mouse_drag_event(self, ev):
-        print(f'{random.choice(string.ascii_letters)} mouse drag')
+        if not self.enabled:
+            return
         plot_coord = self.plot_item.vb.mapSceneToView(ev.scenePos())
 
         def link_first_and_last():
@@ -45,7 +49,7 @@ class LassoManager:
                 q_point = QtCore.QPointF(point[0], point[1])
                 if self.path.contains(q_point):
                     contained.append(i)
-            self.callback(contained)
+            self.callback(contained, self.interactive_plot)
         else:
             remove_last()
             self.points_x.append(plot_coord.x())
@@ -64,18 +68,12 @@ class LassoManager:
             self.lasso_plot_item.clear()
 
     def set_enabled(self, enabled: bool):
+        self.enabled = enabled
         if enabled:
             self.lasso_plot_item = pg.PlotCurveItem(
                 pen=pg.mkPen(width=4, color=(255, 255, 255, 100), style=QtCore.Qt.DashLine))
             self.plot_item.addItem(self.lasso_plot_item)
-
-            def f(ev):
-                self.my_mouse_drag_event(ev)
-
-            self.original_mouseDragEvent = self.plot_item.vb.mouseDragEvent
-            self.plot_item.vb.mouseDragEvent = f
+            self.interactive_plot.scatter_plot_item.sigClicked.connect(lambda x: self.my_mouse_click_event())
         else:
             self.clear_lasso()
-            if self.original_mouseDragEvent is not None:
-                self.plot_item.vb.mouseDragEvent = self.original_mouseDragEvent
-            self.callback([])
+            self.callback([], self.interactive_plot)

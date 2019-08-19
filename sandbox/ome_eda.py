@@ -34,7 +34,8 @@ class OmeViewer(LayerViewerWidget):
         self.inner_splitter.setOrientation(QtCore.Qt.Vertical)
         self.vhbox.addWidget(self.inner_splitter)
         self.inner_splitter.addWidget(self.m_layer_ctrl_widget)
-        self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
+        # self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
+        self.interactive_plots_manager = InteractivePlotsManager(rows=2, cols=2, ome_viewer=self)
         self.inner_splitter.addWidget(self.interactive_plots_manager)
 
         self.gui_controls = GuiControls()
@@ -85,7 +86,7 @@ class OmeViewer(LayerViewerWidget):
     def highlight_selected_cells(self, indices):
         # all the plots have the same number of points, because they are different embeddings of the same data
         points_count = len(self.interactive_plots_manager.interactive_plots[0].points)
-        indices_not_selected = list(set(range(points_count)).difference(indices))
+        not_selected_indices = list(set(range(points_count)).difference(indices))
         if self.masks_layer is None:
             return
         lut = self.masks_layer.lut
@@ -98,8 +99,8 @@ class OmeViewer(LayerViewerWidget):
             lut[0, 3] = 0
             lut = lut.astype('int64')
         lut[:, 3] = 255
-        if len(indices_not_selected) > 0:
-            lut[indices_not_selected, 3] = 0.1
+        if len(not_selected_indices) > 0:
+            lut[not_selected_indices, 3] = 0.1
 
         self.masks_layer.lut = lut
         self.masks_layer.update_data(self.masks_layer.m_data)
@@ -202,8 +203,12 @@ class OmeViewer(LayerViewerWidget):
 
         self.interactive_plots_manager.interactive_plots[0].show_scatter_plot(umap_results, brushes)
         self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(tsne_results, brushes)
-        for i in range(2, 16):
-            self.interactive_plots_manager.interactive_plots[i].show_scatter_plot(tsne_results, brushes)
+        dummy_data0 = umap_results + tsne_results
+        dummy_data1 = umap_results * tsne_results
+        self.interactive_plots_manager.interactive_plots[2].show_scatter_plot(dummy_data0, brushes)
+        self.interactive_plots_manager.interactive_plots[3].show_scatter_plot(dummy_data1, brushes)
+        # for i in range(2, 16):
+        #     self.interactive_plots_manager.interactive_plots[i].show_scatter_plot(tsne_results, brushes)
 
     def crosshair_toggled(self, state):
         for interactive_plot in self.interactive_plots_manager.interactive_plots:
