@@ -40,7 +40,10 @@ class LazyLoader(ABC):
 
     def precompute_if_needed(self):
         if not self.has_data_already_been_precomputed():
-            self.precompute()
+            data = self.precompute()
+            if data is None:
+                raise ValueError(f'data = {data}')
+            self._save_data(data)
 
     @abstractmethod
     def _load_precomputed_data(self):

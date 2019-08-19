@@ -17,6 +17,7 @@ class LassoManager:
 
     def my_mouse_click_event(self, ev):
         self.plot_widget.removeItem(self.lasso_plot_item)
+        self.callback([])
 
     def my_mouse_drag_event(self, ev):
         plot_coord = self.plot_widget.vb.mapSceneToView(ev.scenePos())

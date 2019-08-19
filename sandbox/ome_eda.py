@@ -9,7 +9,7 @@ from pyqtgraph.Qt import QtGui, QtCore
 from sandbox.crosshair_manager import CrosshairManager
 from sandbox.gui_controls import GuiControls
 from sandbox.lasso_manager import LassoManager
-from sandbox.umap_eda import PlateUMAPLoader
+from sandbox.umap_eda import PlateUMAPLoader, PlateTSNELoader
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
 
 
@@ -44,15 +44,10 @@ class OmeViewer(LayerViewerWidget):
         self.inner_splitter.insertWidget(1, self.gui_controls)
         self.inner_splitter.show()
 
-        sizes = self.inner_splitter.sizes()
-        a = sizes[0] + sizes[2]
-        ratio = 9.0 / 16.0
-        sizes[0] = a * ratio
-        sizes[2] = a * (1 - ratio)
-        self.inner_splitter.setSizes(sizes)
+        self.balance_layout()
 
-        self.crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells, self)
-        self.lasso_manager = LassoManager(self.plot_widget, self.highlight_selected_cells, self)
+        self.umap_crosshair_manager = CrosshairManager(self.plot_widget, self.highlight_selected_cells, self)
+        self.umap_lasso_manager = LassoManager(self.plot_widget, self.highlight_selected_cells, self)
 
         patients_count = len(jfd.patients)
         self.gui_controls.patient_slider.setMaximum(patients_count - 1)
@@ -73,6 +68,7 @@ class OmeViewer(LayerViewerWidget):
         )
         self.gui_controls.crosshair_radio_button.toggled.connect(lambda x: self.crosshair_toggled(x))
         self.gui_controls.lasso_radio_button.toggled.connect(lambda x: self.lasso_toggled(x))
+        self.gui_controls.detach_embeddings_check_box.toggled.connect(lambda x: self.detach_embeddings_toggled(x))
 
         self.set_patient(jfd.patients[20])
 
@@ -83,6 +79,14 @@ class OmeViewer(LayerViewerWidget):
 
         self.ome_layer.ctrl_widget().channel_selector.setValue(47)
         self.load_settings()
+
+    def balance_layout(self):
+        sizes = self.inner_splitter.sizes()
+        a = sizes[0] + sizes[2]
+        ratio = 9.0 / 16.0
+        sizes[0] = a * ratio
+        sizes[2] = a * (1 - ratio)
+        self.inner_splitter.setSizes(sizes)
 
     def highlight_selected_cells(self, indices):
         indices_not_selected = list(set(range(len(self.current_points))).difference(indices))
@@ -139,6 +143,7 @@ class OmeViewer(LayerViewerWidget):
         # we create one scatterplot of the umap of a specific channel for the current patient, when we change channel
         # we do not need to recreate the scatterplot but just to change the colormap
         self.first_umap_shown = False
+        self.first_tsne_shown = False
         if self.current_patient.source == PatientSource.basel:
             self.gui_controls.patient_source_combo_box.setCurrentIndex(0)
             self.gui_controls.patient_pid_spin_box.setValue(new_pid)
@@ -152,7 +157,7 @@ class OmeViewer(LayerViewerWidget):
 
         self.current_plate = self.current_patient.plates[0]
         ome = self.current_plate.get_ome()
-        self.update_umap()
+        self.update_embeddings()
 
         if self.ome_layer is None:
             self.ome_layer = MultiChannelImageLayer(name='ome', data=ome[...])
@@ -182,10 +187,12 @@ class OmeViewer(LayerViewerWidget):
 
     def update_channel_label(self):
         self.gui_controls.channel_name_combo_box.setCurrentIndex(self.gui_controls.channel_slider.value())
-        self.update_umap()
+        self.update_embeddings()
 
-    def update_umap(self):
-        reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
+    def update_embeddings(self):
+        umap_reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
+        tsne_reducer, tsne_results, original_data = PlateTSNELoader(self.current_plate).load_data()
+
         current_channel = self.gui_controls.channel_slider.value()
         a = min(original_data[:, current_channel])
         b = max(original_data[:, current_channel])
@@ -195,21 +202,28 @@ class OmeViewer(LayerViewerWidget):
         color_for_points = q_colormap.map(original_data[:, current_channel])
         brushes = [QtGui.QBrush(QtGui.QColor(*color_for_points[i, :].tolist())) for i in
                    range(color_for_points.shape[0])]
+
         if not self.first_umap_shown:
             self.first_umap_shown = True
+            # this function must be called because the lasso manager class replaces a default method for dealing with
+            # the mouse with a custom one, if when creating a new plot (i.e. switching to a new patient) the default
+            # method is not restored, then in the case in which the user returns again to the old patient,
+            # the default method would still result overridden, making it impossible to pan in the crosshair mode (a
+            # lasso is drawn instead)
+            self.umap_lasso_manager.set_enabled(False)
             self.scatter_plot_item = pg.ScatterPlotItem(size=10,
                                                         pen=pg.mkPen(None))
-            self.scatter_plot_item.setData(pos=umap_results, brush=brushes)
+            self.scatter_plot_item.setData(pos=data, brush=brushes)
             self.plot_widget.clear()
-            self.plot_widget.setRange(xRange=[min(umap_results[:, 0]), max(umap_results[:, 0])],
-                                      yRange=[min(umap_results[:, 1]), max(umap_results[:, 1])])
+            self.plot_widget.setRange(xRange=[min(data[:, 0]), max(data[:, 0])],
+                                      yRange=[min(data[:, 1]), max(data[:, 1])])
             self.plot_widget.addItem(self.scatter_plot_item)
             self.plot_widget.disableAutoRange()
             # to hide the auto range button
             self.plot_widget.hideButtons()
 
-            self.crosshair_manager.set_enabled(self.gui_controls.crosshair_radio_button.isChecked())
-            self.lasso_manager.set_enabled(self.gui_controls.lasso_radio_button.isChecked())
+            self.umap_crosshair_manager.set_enabled(self.gui_controls.crosshair_radio_button.isChecked())
+            self.umap_lasso_manager.set_enabled(self.gui_controls.lasso_radio_button.isChecked())
         else:
             self.scatter_plot_item.setBrush(brushes)
 
@@ -217,10 +231,34 @@ class OmeViewer(LayerViewerWidget):
         self.current_points = points
 
     def crosshair_toggled(self, state):
-        self.crosshair_manager.set_enabled(state)
+        self.umap_crosshair_manager.set_enabled(state)
 
     def lasso_toggled(self, state):
-        self.lasso_manager.set_enabled(state)
+        self.umap_lasso_manager.set_enabled(state)
+
+    def detach_embeddings_toggled(self, state):
+        class DetachedEmbeddingsWindow(QtGui.QWidget):
+            def __init__(self, ome_eda, parent=None):
+                QtGui.QWidget.__init__(self, parent)
+                self.ome_eda = ome_eda
+
+            def closeEvent(self, event):
+                self.ome_eda.gui_controls.outer_layout.addWidget(
+                    self.ome_eda.gui_controls.embedding_view_properties_group_box)
+                self.ome_eda.inner_splitter.addWidget(self.ome_eda.graphics_layout_widget)
+                self.ome_eda.balance_layout()
+                self.ome_eda.gui_controls.detach_embeddings_check_box.setChecked(False)
+                event.accept()  # let the window close
+
+        if state:
+            self.detached_embeddings_window = DetachedEmbeddingsWindow(self)
+            l = QtGui.QVBoxLayout()
+            self.detached_embeddings_window.setLayout(l)
+            l.addWidget(self.gui_controls.embedding_view_properties_group_box)
+            l.addWidget(self.graphics_layout_widget)
+            self.detached_embeddings_window.show()
+        else:
+            self.detached_embeddings_window.close()
 
 
 # start qt event loop unless running in interactive mode or using pyside.

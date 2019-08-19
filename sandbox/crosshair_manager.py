@@ -16,6 +16,14 @@ class CrosshairManager:
         self.point_diameter = 100
         self.ome_eda = ome_eda
 
+        # self.latest_mouse_event = None
+        #
+        # def f():
+        #     if self.latest_mouse_event is not None:
+        #         self.mouse_moved(self.latest_mouse_event)
+        #
+        # self.plot_widget.sigRangeChanged.connect(f)
+
     def mapDistanceSceneToView(self, l: float):
         fake_point0 = QtCore.QPointF(l, l)
         fake_point1 = QtCore.QPointF(0, 0)
@@ -31,6 +39,7 @@ class CrosshairManager:
             return
         # coord = event[0]  ## using signal proxy turns original arguments into a tuple
         coord = event
+        # self.latest_mouse_event = event
         plot_coord = self.plot_widget.vb.mapSceneToView(coord)
         plot_coord = (plot_coord.x(), plot_coord.y())
 
