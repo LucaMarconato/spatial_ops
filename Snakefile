@@ -30,11 +30,11 @@ rule ome_eda:
          mkdir -p snakemake; touch snakemake/ome_eda
          """
 
-rule test_vae:
+rule vae:
     output:
-          "snakemake/test_vae"
+          "snakemake/vae"
     shell:
          """
          python3 -m sandbox.vae
-         mkdir -p snakemake; touch snakemake/test_vae
+         mkdir -p snakemake; touch snakemake/vae
          """
