@@ -4,10 +4,9 @@ channels:
   - anaconda
   - conda-forge
   - bioconda
-  - pytorch
 dependencies:
   - make
-  - sphinx 
+  - sphinx
   - sphinx_rtd_theme
   - sphinx-gallery
   - pytest
@@ -29,6 +28,8 @@ dependencies:
   - umap-learn
   - seaborn
   - h5py
-  - pytorch
+  - pytorch:pytorch
+  - pytorch:torchvision
+  - pytorch:cudatoolkit=9.2
   - pip:
     - git+https://github.com/LucaMarconato/layer_viewer.git

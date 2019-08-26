@@ -1,8 +1,8 @@
 rule all:
     input:
          # "snakemake/csv_eda"
-         # "snakemake/test_vae"
-         "snakemake/ome_eda"
+         "snakemake/vae"
+         # "snakemake/ome_eda"
     shell:
          # the rules for which the output files are removed basically act as .PHONY targets
          "rm snakemake/*"

@@ -9,7 +9,7 @@ from spatial_ops.data import basel_patient_data, zurich_patient_data, staining_d
 from spatial_ops.folders import basel_patient_data_path, \
     zurich_patient_data_path, \
     staining_data_path, \
-    whole_image_data_path
+    whole_image_data_path, get_processed_data_folder
 
 if __name__ == '__main__':
     init(autoreset=True)
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         cbar = plt.colorbar(ticks=[0, 1], orientation='horizontal', shrink=0.5)
         cbar.set_ticks([0.25, 0.75])
         cbar.set_ticklabels(['not null', 'null'])
-        output_folder = 'generated_data'
+        output_folder = os.path.join(get_processed_data_folder(), 'csv')
         os.makedirs(output_folder, exist_ok=True)
         output_image_path = os.path.join(output_folder, os.path.basename(csv_path.replace('.csv', '.png')))
         plt.savefig(output_image_path)

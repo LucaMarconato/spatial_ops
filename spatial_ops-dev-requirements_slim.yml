@@ -3,10 +3,9 @@ name: spatial_ops-dev-requirements
 channels:
   - anaconda
   - conda-forge
-  - pytorch
 dependencies:
   - make
-  - sphinx 
+  - sphinx
   - pytest
   - flake8
   - coverage
@@ -16,7 +15,9 @@ dependencies:
   - matplotlib
   - colorama
   - progressbar2
-  - pytorch
+  - pytorch:pytorch
+  - pytorch:torchvision
+  - pytorch:cudatoolkit=9.2
   - pip:
     - sphinx_rtd_theme
     - sphinx-gallery

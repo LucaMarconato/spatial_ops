@@ -1,5 +1,10 @@
 import os
 from typing import List
+from joblib import Memory
+
+joblib_cache_folder = os.path.expanduser('~/temp/joblib')
+os.makedirs(joblib_cache_folder, exist_ok=True)
+mem = Memory(joblib_cache_folder)
 
 
 def static_vars(**kwargs):
@@ -81,13 +86,6 @@ def get_ome_files() -> List[str]:
 def get_processed_data_folder() -> str:
     root = get_data_folder()
     path = os.path.join(root, 'stegle_processed')
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def get_results_folder() -> str:
-    root = get_data_folder()
-    path = os.path.join(root, 'stegle_processed/results')
     os.makedirs(path, exist_ok=True)
     return path
 
