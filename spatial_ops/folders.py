@@ -7,16 +7,7 @@ os.makedirs(joblib_cache_folder, exist_ok=True)
 mem = Memory(joblib_cache_folder)
 
 
-def static_vars(**kwargs):
-    def decorate(func):
-        for k in kwargs:
-            setattr(func, k, kwargs[k])
-        return func
-
-    return decorate
-
-
-@static_vars(data_folder='')
+@mem.cache
 def get_data_folder() -> str:
     user_path = os.path.expanduser('~')
     paths = {'luca': os.path.join(user_path, 'Downloads/JacksonFischer_Collaborators'),
@@ -24,26 +15,23 @@ def get_data_folder() -> str:
              'odcf': '/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data',
              'ebi': '/nfs/research1/stegle/datasets/spatial_zurich/data/'}
 
-    if get_data_folder.data_folder != '':
-        return get_data_folder.data_folder
-    else:
-        found = 0
-        current_machine = ''
-        for k, v in paths.items():
-            if os.path.isdir(v):
-                current_machine = k
-                get_data_folder.data_folder = v
-                found += 1
+    found = 0
+    current_machine = ''
+    for k, v in paths.items():
+        if os.path.isdir(v):
+            current_machine = k
+            data_folder = v
+            found += 1
 
-        if found == 0:
-            raise Exception(
-                'Unable to find the data, please download the data and/or update the values of the "paths" dictionary')
+    if found == 0:
+        raise Exception(
+            'Unable to find the data, please download the data and/or update the values of the "paths" dictionary')
 
-        if found > 1:
-            raise Exception('Multiple data folder found, aborting')
+    if found > 1:
+        raise Exception('Multiple data folder found, aborting')
 
-        print(f'current machine = {current_machine}')
-        return get_data_folder.data_folder
+    print(f'current machine = {current_machine}')
+    return data_folder
 
 
 def get_csv_folder() -> str:
@@ -96,12 +84,6 @@ def get_pickles_folder() -> str:
     return path
 
 
-def get_region_features_folder() -> str:
-    path = os.path.join(get_pickles_folder(), 'region_features')
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
 def get_mask_path_associated_to_ome_path(ome_path: str) -> str:
     ome_filename = os.path.basename(ome_path)
     if ome_filename.endswith('ome.tiff'):
@@ -112,16 +94,6 @@ def get_mask_path_associated_to_ome_path(ome_path: str) -> str:
         raise ValueError(f'ome_filename = {ome_filename}')
     mask_path = os.path.join(get_masks_folder(), mask_filename)
     return mask_path
-
-
-def get_hdf5_files_folder() -> str:
-    path = get_processed_data_folder()
-    path = os.path.join(path, 'hdf5_files')
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-hdf5_lazy_loader_data_path = os.path.join(get_hdf5_files_folder(), 'lazy_loader_storage.hdf5')
 
 
 def get_pickle_lazy_loader_data_path() -> str:

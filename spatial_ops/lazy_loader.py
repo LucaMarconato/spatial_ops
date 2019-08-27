@@ -2,10 +2,7 @@ import os
 import pickle
 from abc import ABC, abstractmethod
 
-import h5py
-import numpy as np
-
-from .folders import get_pickle_lazy_loader_data_path, hdf5_lazy_loader_data_path
+from .folders import get_pickle_lazy_loader_data_path
 from .unpickler import CustomUnpickler
 
 
@@ -100,40 +97,6 @@ class PickleLazyLoader(LazyLoader, ABC):
         pickle.dump(data, open(self.get_pickle_path(), 'wb'))
 
 
-if not os.path.isfile(hdf5_lazy_loader_data_path):
-    f = h5py.File(hdf5_lazy_loader_data_path, 'w')
-    f.close()
-
-
-class HDF5LazyLoader(LazyLoader, ABC):
-    # just for convenience, to have the path ready when deriving the subclass
-    def get_hdf5_file_path(self) -> str:
-        return hdf5_lazy_loader_data_path
-
-    def get_hdf5_resource_internal_path(self):
-        return self.associated_instance.get_lazy_loader_unique_identifier() \
-               + '/' + self.get_resource_unique_identifier()
-
-    # using a singleton and opening the file only once in r+ mode would lead to better performance, but I will wait
-    # to see if the current performance are bad before implementing it
-    def _load_precomputed_data(self):
-        with h5py.File(self.get_hdf5_file_path(), 'r') as f:
-            data = np.array(f[self.get_hdf5_resource_internal_path()][...])
-            return data
-
-    def has_data_already_been_precomputed(self):
-        with h5py.File(self.get_hdf5_file_path(), 'r') as f:
-            return self.get_hdf5_resource_internal_path() in f
-
-    def delete_precomputation(self):
-        with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
-            del f[self.get_hdf5_resource_internal_path()]
-
-    def _save_data(self, data):
-        with h5py.File(self.get_hdf5_file_path(), 'r+') as f:
-            f[self.get_hdf5_resource_internal_path()] = data
-
-
 if __name__ == '__main__':
     from spatial_ops.data import JacksonFischerDataset as jfd
     from spatial_ops.data import Patient
@@ -153,20 +116,4 @@ if __name__ == '__main__':
 
 
     derived_quantity = NumberOfPlatesLoader0(patient)
-    print(derived_quantity.load_data())
-
-
-    class NumberOfPlatesLoader1(HDF5LazyLoader):
-        def get_resource_unique_identifier(self) -> str:
-            return 'example_quantity_hdf5'
-
-        def precompute(self):
-            p: Patient = self.associated_instance
-            data = f'len = {len(p.plates)}'
-            # data = np.zeros((2, 3))
-            return data
-
-
-    derived_quantity = NumberOfPlatesLoader1(patient)
-    # derived_quantity.delete_precomputation()
     print(derived_quantity.load_data())

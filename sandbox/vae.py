@@ -1,27 +1,26 @@
 import argparse
-import pickle
 import os
-from multiprocessing import Pool
 import random
+from multiprocessing import Pool
 from typing import List
-import progressbar
-import umap
-from spatial_ops.data import PatientSource
 
 import numpy as np
+import progressbar
 import torch.utils.data
+import umap
 from sklearn.preprocessing import StandardScaler
 from torch import autograd
 from torch import nn, optim
 from torch.nn import functional as F
-from torch.distributions.multivariate_normal import MultivariateNormal
 
+from sandbox.umap_eda import show_umap_embedding
 from spatial_ops.data import JacksonFischerDataset as jfd, Plate
 from spatial_ops.folders import get_processed_data_folder
-
 from spatial_ops.folders import mem
-from sandbox.umap_eda import show_umap_embedding
 from spatial_ops.lazy_loader import PickleLazyLoader
+
+
+# from torch.distributions.multivariate_normal import MultivariateNormal
 
 
 class AutoEncoderDataset(torch.utils.data.Dataset):
@@ -30,9 +29,7 @@ class AutoEncoderDataset(torch.utils.data.Dataset):
         self.std = std
         self.plates: List[Plate] = []
         for patient in jfd.patients:
-            if patient.pid == 25 and patient.source == PatientSource.basel:
-                self.plates.append(patient.plates[0])
-            # self.plates.extend(patient.plates)
+            self.plates.extend(patient.plates)
         self.biologically_relevant_channels = [k for k, v in jfd.get_biologically_relevant_channels().items()]
 
     def __len__(self):
@@ -58,29 +55,8 @@ class AutoEncoderDataset(torch.utils.data.Dataset):
         return x
 
 
-class VAEUmapBasel25Loader(PickleLazyLoader):
-    def get_resource_unique_identifier(self) -> str:
-        return 'umap_of_vae_basel25'
-
-    def precompute(self):
-        torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_basel25')
-        dataset = get_scaled_dataset()
-        model = VAE(dataset.channels_count())
-        model.load_state_dict(torch.load(torch_model_path))
-        rf = self.associated_instance.get_region_features()
-        x = dataset.move_to_torch_and_scale(rf.mean)
-        means, logvars = model.encode(x)
-        means = means.detach().numpy()
-        logvars = logvars.detach().numpy()
-        reducer = umap.UMAP(verbose=True, n_components=2)
-        umap_result = reducer.fit_transform(means)
-        data = (reducer, umap_result, means)
-        return data
-
-
 @mem.cache
-def get_scaled_dataset():
-    # ehi
+def get_standardized_dataset():
     dataset = AutoEncoderDataset()
     scaler = StandardScaler(copy=True, with_mean=True, with_std=True)
     for data in dataset:
@@ -136,8 +112,7 @@ class VAE(nn.Module):
         log_var = F.relu(self.encoder3_log_var(x))
         # identity = nn.Identity(self.hidden_layer_dimensions)
         # dropout = WeightedDropout(self.hidden_layer_dimensions)
-        # NO!!!!
-        # f = lambda x: dropout(identity(x))
+        # f = lambda x: dropout(identity(x)) this line must be chanced if you want the dropout to work
         # dropped_out_mean = f(mean)
         # dropped_out_log_var = f(log_var)
         # return dropped_out_mean, dropped_out_log_var
@@ -156,26 +131,24 @@ class VAE(nn.Module):
         return decoded
 
     def forward(self, x):
-        mu, logvar = self.encode(x.view(-1, self.features_count))
-        z = self.reparameterize(mu, logvar)
-        return self.decode(z), mu, logvar
+        mu, log_var = self.encode(x.view(-1, self.features_count))
+        z = self.reparameterize(mu, log_var)
+        return self.decode(z), mu, log_var
 
 
 # Reconstruction + KL divergence losses summed over all elements and batch
-def loss_function(recon_x, x, mu, logvar):
-    # bce = F.binary_cross_entropy(recon_x, x.view(-1, dataset.channels_count()), reduction='sum')
+def loss_function(recon_x, x, mu, log_var):
     x = x.view(-1, dataset.channels_count())
     err = torch.norm(recon_x - x).mean()
-
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
     # https://arxiv.org/abs/1312.6114
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     beta = 0.000001
     # beta = 1
-    # magic_number = logvar.numel() * 11.0
+    # magic_number = log_var.numel() * 11.0
     magic_number = 1
-    kld = -0.5 / magic_number * beta * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    kld = -0.5 / magic_number * beta * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     regularizator = 1
     # print(f'err = {err}, kld = {kld}, err / regularizator = {err / regularizator}')
     return err / regularizator + kld
@@ -188,15 +161,15 @@ def train(epoch):
         data = data.to(device)
         optimizer.zero_grad()
         with autograd.detect_anomaly():
-            recon_batch, mu, logvar = model(data)
-            loss = loss_function(recon_batch, data, mu, logvar)
+            recon_batch, mu, log_var = model(data)
+            loss = loss_function(recon_batch, data, mu, log_var)
             loss.backward()
             loss_item = loss.item()
             train_loss += loss_item
             optimizer.step()
             if batch_idx % args.log_interval == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(training_loader.dataset),
+                    epoch, batch_idx * len(data), len(training_loader),
                            100. * batch_idx / len(training_loader),
                            loss_item / len(data)))
 
@@ -210,8 +183,8 @@ def test(epoch):
     with torch.no_grad():
         for i, (data) in enumerate(validation_loader):
             data = data.to(device)
-            recon_batch, mu, logvar = model(data)
-            test_loss += loss_function(recon_batch, data, mu, logvar).item()
+            recon_batch, mu, log_var = model(data)
+            test_loss += loss_function(recon_batch, data, mu, log_var).item()
     test_loss /= len(validation_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
 
@@ -224,13 +197,13 @@ def get_data_points():
         data_points = torch.empty(size=[0, model.hidden_layer_dimensions])
         for i, data in enumerate(dataset):
             bar.update(i)
-            means, logvars = model.encode(data)
+            means, log_vars = model.encode(data)
             instance_ids.extend([i] * means.shape[0])
             l.append(means)
             # for j in range(means.shape[0]):
             #     mean = means[j, :]
-            #     logvar = logvars[j, :]
-            #     var = torch.exp(logvar)
+            #     log_var = log_vars[j, :]
+            #     var = torch.exp(log_var)
             #     m = MultivariateNormal(mean, torch.diag(var))
             #     sample = m.sample()
             #     sample = sample.view(-1, len(sample))
@@ -241,27 +214,20 @@ def get_data_points():
     return data_points, instance_ids
 
 
-# def generate(epoch: int, digit: int):
-#     with torch.no_grad():
-#         sample = torch.randn(100, model.hidden_layer_dimensions).to(device)
-#         sample = model.decode(sample).cpu()
-#         save_image(sample.view(64, 1, 28, 28),
-#                    'results/sample_' + str(epoch) + '.png')
-
 class VAEUmapLoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
         return 'umap_of_vae'
 
     def precompute(self):
         torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
-        dataset = get_scaled_dataset()
+        dataset = get_standardized_dataset()
         model = VAE(dataset.channels_count())
         model.load_state_dict(torch.load(torch_model_path))
         rf = self.associated_instance.get_region_features()
         x = dataset.move_to_torch_and_scale(rf.mean)
-        means, logvars = model.encode(x)
+        means, log_vars = model.encode(x)
         means = means.detach().numpy()
-        logvars = logvars.detach().numpy()
+        log_vars = log_vars.detach().numpy()
         reducer = umap.UMAP(verbose=True, n_components=2)
         umap_result = reducer.fit_transform(means)
         data = (reducer, umap_result, means)
@@ -276,21 +242,18 @@ def parallel_precompute_vae_umap_on_single_patient(patient):
 def parallel_precompute_vae_umap():
     with Pool(processes=4) as pool:
         pool.map(parallel_precompute_vae_umap_on_single_patient,
-                 iterable=jfd.patients[:50])
+                 iterable=jfd.patients)
 
 
 # parallel_precompute_vae_umap()
 # os._exit(0)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='nn test')
-    parser.add_argument('--epochs', type=int, default=1000, metavar='N',
-                        help='number of epochs to train (default: 10)')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disable CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+    parser = argparse.ArgumentParser(description='vae for spatial data')
+    parser.add_argument('--epochs', type=int, default=10, metavar='N', help='number of epochs to train')
+    parser.add_argument('--no-cuda', action='store_true', default=False, help='disable CUDA training')
+    parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
+    parser.add_argument('--log-interval', type=int, default=25, metavar='N',
                         help='how many batches to wait before logging training status')
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -308,8 +271,9 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     device = torch.device('cuda' if use_cuda else 'cpu')
 
-    dataset = get_scaled_dataset()
+    dataset = get_standardized_dataset()
 
+    # construct the data loaders, one for training, one for testing
     indices = list(range(len(dataset)))
     random.shuffle(indices)
     training_data_fraction = 0.8
@@ -330,8 +294,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     # torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_0.1_trick')
-    # torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
-    torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_basel25')
+    torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
     rebuild_model = False
     rebuild_model = True
     if not os.path.isfile(torch_model_path) or rebuild_model:
