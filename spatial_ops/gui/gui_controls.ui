@@ -73,7 +73,7 @@
        <item row="1" column="2">
         <widget class="QSlider" name="horizontalSlider">
          <property name="enabled">
-          <bool>true</bool>
+          <bool>false</bool>
          </property>
          <property name="focusPolicy">
           <enum>Qt::ClickFocus</enum>
@@ -238,6 +238,9 @@
           </item>
           <item>
            <widget class="QCheckBox" name="disable_interactivity_check_box">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>Hide embeddings</string>
             </property>

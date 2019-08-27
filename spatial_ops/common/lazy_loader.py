@@ -2,8 +2,8 @@ import os
 import pickle
 from abc import ABC, abstractmethod
 
-from .folders import get_pickle_lazy_loader_data_path
-from .unpickler import CustomUnpickler
+from spatial_ops.common.folders import get_pickle_lazy_loader_data_path
+from spatial_ops.common.unpickler import CustomUnpickler
 
 
 class LazyLoaderAssociatedInstance:
@@ -24,7 +24,7 @@ class LazyLoader(ABC):
         pass
 
     @abstractmethod
-    def precompute(self):
+    def compute(self):
         pass
 
     @abstractmethod
@@ -35,12 +35,17 @@ class LazyLoader(ABC):
     def has_data_already_been_precomputed(self):
         pass
 
+    def precompute(self, store_precomputation_on_disk=True):
+        data = self.compute()
+        if data is None:
+            raise ValueError(f'data = {data}')
+        if store_precomputation_on_disk:
+            self._save_data(data)
+        return data
+
     def precompute_if_needed(self):
         if not self.has_data_already_been_precomputed():
-            data = self.precompute()
-            if data is None:
-                raise ValueError(f'data = {data}')
-            self._save_data(data)
+            self.precompute()
 
     @abstractmethod
     def _load_precomputed_data(self):
@@ -49,17 +54,9 @@ class LazyLoader(ABC):
     def load_data(self, store_precomputation_on_disk=True):
         if self.associated_instance is None:
             raise ValueError(f'self.associated_instance = {self.associated_instance}')
-
         if not self.has_data_already_been_precomputed():
-            # print('precomputing')
-            data = self.precompute()
-            if data is None:
-                raise ValueError(f'data = {data}')
-            if store_precomputation_on_disk:
-                self._save_data(data)
-            return data
+            return self.precompute(store_precomputation_on_disk)
         else:
-            # print('loading')
             return self._load_precomputed_data()
 
     @abstractmethod
@@ -98,8 +95,8 @@ class PickleLazyLoader(LazyLoader, ABC):
 
 
 if __name__ == '__main__':
-    from spatial_ops.data import JacksonFischerDataset as jfd
-    from spatial_ops.data import Patient
+    from spatial_ops.common.data import JacksonFischerDataset as jfd
+    from spatial_ops.common.data import Patient
 
     patient = jfd.patients[15]
 

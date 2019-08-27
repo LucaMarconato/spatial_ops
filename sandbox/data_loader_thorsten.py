@@ -3,7 +3,7 @@ from typing import List
 
 import torch.utils.data
 
-from spatial_ops.data import JacksonFischerDataset as jfd, Plate
+from spatial_ops.common.data import JacksonFischerDataset as jfd, Plate
 
 
 class AutoEncoderDataset(torch.utils.data.Dataset):

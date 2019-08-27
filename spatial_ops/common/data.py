@@ -9,7 +9,7 @@ import progressbar
 import skimage
 import vigra
 
-from spatial_ops.folders import \
+from spatial_ops.common.folders import \
     basel_patient_data_path, \
     zurich_patient_data_path, \
     staining_data_path, \
@@ -21,8 +21,8 @@ from spatial_ops.folders import \
  \
     get_mask_path_associated_to_ome_path, \
     get_pickles_folder
-from .lazy_loader import LazyLoaderAssociatedInstance, PickleLazyLoader
-from .unpickler import CustomUnpickler
+from spatial_ops.common.lazy_loader import LazyLoaderAssociatedInstance, PickleLazyLoader
+from spatial_ops.common.unpickler import CustomUnpickler
 
 basel_patient_data = pd.read_csv(basel_patient_data_path)
 zurich_patient_data = pd.read_csv(zurich_patient_data_path)
@@ -75,7 +75,7 @@ class RegionFeaturesLoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
         return 'region_features'
 
-    def precompute(self):
+    def compute(self):
         ome = self.associated_instance.get_ome(cache=False)
         masks = self.associated_instance.get_masks()
 
@@ -98,7 +98,7 @@ class GetOmeLoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
         return 'get_ome'
 
-    def precompute(self):
+    def compute(self):
         ome = skimage.io.imread(self.associated_instance.ome_path)
         ome = np.moveaxis(ome, 0, 2)
         ome = np.require(ome, requirements=['C'])
@@ -121,7 +121,6 @@ class Plate(LazyLoaderAssociatedInstance):
             raise FileNotFoundError(f'file not found: {self.ome_path}')
 
         self.ome_loader = GetOmeLoader(associated_instance=self)
-        # self.ome_loader.precompute_if_needed()
 
         self.mask_path = get_mask_path_associated_to_ome_path(self.ome_path)
         if self.mask_path in remaining_mask_files:
@@ -131,10 +130,6 @@ class Plate(LazyLoaderAssociatedInstance):
 
         self.region_features_loader = RegionFeaturesLoader(associated_instance=self)
         self.region_features_loader.precompute_if_needed()
-
-        # self.region_features_path = get_region_features_path_associated_to_ome_path(self.ome_path)
-        # if not os.path.isfile(self.region_features_path):
-        #     self.generate_region_features(self.region_features_path)
 
     def get_ome(self, cache=True) -> np.ndarray:
         ome = self.ome_loader.load_data(store_precomputation_on_disk=cache)
@@ -148,31 +143,6 @@ class Plate(LazyLoaderAssociatedInstance):
 
     def get_region_features(self) -> RegionFeatures:
         return self.region_features_loader.load_data()
-
-    # def get_region_features(self) -> Dict[str, np.array]:
-    #     region_features = CustomUnpickler(open(self.region_features_path, 'rb')).load()
-    #     return region_features
-    #
-    # def generate_region_features(self, region_features_path: str):
-    #     ome = self.get_ome()
-    #     masks = self.get_masks()
-    #
-    #     # plt.figure()
-    #     # cmap = matplotlib.colors.ListedColormap(np.random.rand(masks.max() + 1, 3))
-    #     # cmap.colors[0] = (0, 0, 0)
-    #     # im = plt.imshow(masks, cmap=cmap)
-    #     # # plt.colorbar(im)
-    #     # plt.show()
-    #
-    #     # supported_features = vigra.analysis.extractRegionFeatures(ome, labels=masks, features=None,
-    #     #                                                           ignoreLabel=0).supportedFeatures()
-    #     # print(f'supported features: {supported_features}')
-    #     feature_accumulator = vigra.analysis.extractRegionFeatures(ome, labels=masks, ignoreLabel=0,
-    #                                                                features=['Count', 'Maximum', 'Mean', 'Sum',
-    #                                                                          'Variance', 'RegionCenter'])
-    #
-    #     region_features = RegionFeatures(feature_accumulator)
-    #     pickle.dump(region_features, open(region_features_path, 'wb'))
 
     @staticmethod
     def get_mask_for_specific_cell(masks: np.ndarray, region_number: int):
@@ -191,10 +161,10 @@ def call_the_initializer(cls):
 class JacksonFischerDataset:
     @classmethod
     def initialize(cls):
-        dont_load_from_pickles = True
-        dont_load_from_pickles = False
+        load_from_pickles = False
+        load_from_pickles = True
         pickle_path = os.path.join(get_pickles_folder(), 'JacksonFisherDataset.pickle')
-        if os.path.isfile(pickle_path) and not dont_load_from_pickles:
+        if os.path.isfile(pickle_path) and load_from_pickles:
             print('unpickling data... ', end='')
             cls.patients = CustomUnpickler(open(pickle_path, 'rb')).load()
             print('done')

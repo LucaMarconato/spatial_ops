@@ -1,8 +1,8 @@
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
 
-from sandbox.crosshair_manager import CrosshairManager
-from sandbox.lasso_manager import LassoManager
+from spatial_ops.gui.crosshair_manager import CrosshairManager
+from spatial_ops.gui.lasso_manager import LassoManager
 
 
 class CustomViewBox(pg.ViewBox):

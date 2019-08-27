@@ -2,26 +2,23 @@ import os
 import numpy as np
 import pickle
 from multiprocessing import Pool
-import pyqtgraph as pg
-import sys
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import umap
 from sklearn.manifold import TSNE
 
-from spatial_ops.data import JacksonFischerDataset as jfd
-from spatial_ops.lazy_loader import PickleLazyLoader
-from spatial_ops.folders import mem
+from spatial_ops.common.data import JacksonFischerDataset as jfd
+from spatial_ops.common.lazy_loader import PickleLazyLoader
+from spatial_ops.common.folders import mem
 
 
 class PlateUMAPLoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
         return 'plate_umap_of_mean'
 
-    def precompute(self):
+    def compute(self):
         rf = self.associated_instance.get_region_features()
         reducer = umap.UMAP(verbose=True, n_components=2)
         original_data = rf.mean
@@ -34,7 +31,7 @@ class PlateTSNELoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
         return 'plate_tsne_of_mean'
 
-    def precompute(self):
+    def compute(self):
         rf = self.associated_instance.get_region_features()
         reducer = TSNE(verbose=True, n_components=2)
         original_data = rf.mean

@@ -13,11 +13,10 @@ from torch import autograd
 from torch import nn, optim
 from torch.nn import functional as F
 
-from sandbox.umap_eda import show_umap_embedding
-from spatial_ops.data import JacksonFischerDataset as jfd, Plate
-from spatial_ops.folders import get_processed_data_folder
-from spatial_ops.folders import mem
-from spatial_ops.lazy_loader import PickleLazyLoader
+from spatial_ops.common.data import JacksonFischerDataset as jfd, Plate
+from spatial_ops.common.folders import get_processed_data_folder
+from spatial_ops.common.folders import mem
+from spatial_ops.common.lazy_loader import PickleLazyLoader
 
 
 # from torch.distributions.multivariate_normal import MultivariateNormal
@@ -146,12 +145,13 @@ def loss_function(recon_x, x, mu, log_var):
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     beta = 0.000001
     # beta = 1
-    # magic_number = log_var.numel() * 11.0
-    magic_number = 1
-    kld = -0.5 / magic_number * beta * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+    kld = -0.5 * beta * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     regularizator = 1
     # print(f'err = {err}, kld = {kld}, err / regularizator = {err / regularizator}')
-    return err / regularizator + kld
+    loss = err / regularizator + err
+    number_of_cells_in_the_image = len(x)
+    loss = number_of_cells_in_the_image * loss
+    return loss
 
 
 def train(epoch):
@@ -218,7 +218,7 @@ class VAEUmapLoader(PickleLazyLoader):
     def get_resource_unique_identifier(self) -> str:
         return 'umap_of_vae'
 
-    def precompute(self):
+    def compute(self):
         torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
         dataset = get_standardized_dataset()
         model = VAE(dataset.channels_count())
@@ -293,7 +293,6 @@ if __name__ == "__main__":
     model = VAE(dataset.channels_count()).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-    # torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_0.1_trick')
     torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
     rebuild_model = False
     rebuild_model = True
@@ -311,5 +310,5 @@ if __name__ == "__main__":
             kwargs = {}
         model.load_state_dict(torch.load(torch_model_path))
     data_points, instance_ids = get_data_points()
-    show_umap_embedding(data_points, instance_ids, joblib_seed=1)
+    # show_umap_embedding(data_points, instance_ids, joblib_seed=1)
 print('done')

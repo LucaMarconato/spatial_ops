@@ -6,11 +6,11 @@ from layer_viewer import LayerViewerWidget
 from layer_viewer.layers import *
 from pyqtgraph.Qt import QtGui, QtCore
 
-from sandbox.gui_controls import GuiControls
-from sandbox.interactive_plots import InteractivePlotsManager
-from sandbox.umap_eda import PlateUMAPLoader, PlateTSNELoader
-from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
-from sandbox.vae import VAEUmapLoader
+from spatial_ops.gui.gui_controls import GuiControls
+from spatial_ops.gui.interactive_plots import InteractivePlotsManager
+from spatial_ops.eda.umap_eda import PlateUMAPLoader
+from spatial_ops.common.data import JacksonFischerDataset as jfd, Patient, PatientSource
+from spatial_ops.nn.vae import VAEUmapLoader
 
 
 class OmeViewer(LayerViewerWidget):
@@ -35,8 +35,8 @@ class OmeViewer(LayerViewerWidget):
         self.inner_splitter.setOrientation(QtCore.Qt.Vertical)
         self.vhbox.addWidget(self.inner_splitter)
         self.inner_splitter.addWidget(self.m_layer_ctrl_widget)
-        # self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
         self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=2, ome_viewer=self)
+        # self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
         # self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=3, ome_viewer=self)
         self.inner_splitter.addWidget(self.interactive_plots_manager)
 
@@ -136,37 +136,32 @@ class OmeViewer(LayerViewerWidget):
 
     def on_patient_slider_value_changed(self, patient_index: int):
         self.current_patient = jfd.patients[patient_index]
-        patient_information = f'source: {self.current_patient.source}, pid: {self.current_patient.pid}'
-        # when changing the value of the combobox self.current_patient.pid will change
+        # when changing the value of the combobox (possible values basel either zurich),
+        # then self.current_patient.pid will change so we then adjust the value of slider which controls the PID
         new_pid = self.current_patient.pid
-        # we create one scatterplot of the umap of a specific channel for the current patient, when we change channel
-        # we do not need to recreate the scatterplot but just to change the colormap
-        self.first_umap_shown = False
-        self.first_tsne_shown = False
         if self.current_patient.source == PatientSource.basel:
             self.gui_controls.patient_source_combo_box.setCurrentIndex(0)
-            self.gui_controls.patient_pid_spin_box.setValue(new_pid)
         elif self.current_patient.source == PatientSource.zurich:
             self.gui_controls.patient_source_combo_box.setCurrentIndex(1)
-            self.gui_controls.patient_pid_spin_box.setValue(new_pid)
         else:
             raise ValueError(f'self.current_patient_source = {self.current_patient.source}')
         self.gui_controls.patient_pid_spin_box.setMaximum(jfd.patient_count_by_source(self.current_patient.source))
-        self.gui_controls.patient_pid_spin_box.setValue(self.current_patient.pid)
+        self.gui_controls.patient_pid_spin_box.setValue(new_pid)
 
         self.current_plate = self.current_patient.plates[0]
         ome = self.current_plate.get_ome()
         self.interactive_plots_manager.clear_plots()
         self.update_embeddings()
 
+        # update the layer viewer to show the ome of the current patient
         if self.ome_layer is None:
             self.ome_layer = MultiChannelImageLayer(name='ome', data=ome[...])
             self.addLayer(layer=self.ome_layer)
         else:
             self.ome_layer.update_data(ome)
 
+        # update the layer viewer to show the masks of the current patient
         masks = self.current_plate.get_masks()
-
         if self.masks_layer is None:
             self.masks_layer = ObjectLayer(name='mask', data=masks)
             self.add_layer(layer=self.masks_layer)
@@ -190,9 +185,9 @@ class OmeViewer(LayerViewerWidget):
         self.update_embeddings()
 
     def update_embeddings(self):
-        umap_reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
-        # tsne_reducer, tsne_results, original_data = PlateTSNELoader(self.current_plate).load_data()
+        _, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
         _, vae_umap_results, _ = VAEUmapLoader(self.current_plate).load_data()
+        # _, tsne_results, _ = PlateTSNELoader(self.current_plate).load_data()
 
         current_channel = self.gui_controls.channel_slider.value()
         a = min(original_data[:, current_channel])
@@ -205,14 +200,8 @@ class OmeViewer(LayerViewerWidget):
                    range(color_for_points.shape[0])]
 
         self.interactive_plots_manager.interactive_plots[0].show_scatter_plot(umap_results, brushes)
-        # self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(tsne_results, brushes)
         self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(vae_umap_results, brushes)
-        # dummy_data0 = umap_results + tsne_results
-        # dummy_data1 = umap_results * tsne_results
-        # self.interactive_plots_manager.interactive_plots[2].show_scatter_plot(dummy_data0, brushes)
-        # self.interactive_plots_manager.interactive_plots[3].show_scatter_plot(dummy_data1, brushes)
-        # for i in range(2, 16):
-        #     self.interactive_plots_manager.interactive_plots[i].show_scatter_plot(tsne_results, brushes)
+        # self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(tsne_results, brushes)
 
     def crosshair_toggled(self, state):
         for interactive_plot in self.interactive_plots_manager.interactive_plots:
@@ -234,7 +223,7 @@ class OmeViewer(LayerViewerWidget):
                 self.ome_viewer.inner_splitter.addWidget(self.ome_viewer.interactive_plots_manager)
                 self.ome_viewer.balance_layout()
                 self.ome_viewer.gui_controls.detach_embeddings_check_box.setChecked(False)
-                event.accept()  # let the window close
+                event.accept()
 
         if state:
             self.detached_embeddings_window = DetachedEmbeddingsWindow(self)

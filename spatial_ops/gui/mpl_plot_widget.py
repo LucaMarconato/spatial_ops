@@ -1,3 +1,5 @@
+# to embed matplotlib plots into pyqt guis
+
 import matplotlib
 from pyqtgraph.Qt import QtGui, QtWidgets
 
@@ -37,7 +39,7 @@ class EmptyMplCanvas(MyMplCanvas):
         pass
 
 
-class LayerPlotWidget(QtGui.QWidget):
+class MplPlotWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
 
@@ -60,7 +62,7 @@ if __name__ == '__main__':
     import sys
 
     app = QtGui.QApplication(sys.argv)
-    widget = LayerPlotWidget()
+    widget = MplPlotWidget()
     widget.show()
     axes = widget.axes()
     fig = widget.fig()
