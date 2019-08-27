@@ -10,7 +10,7 @@ from sandbox.gui_controls import GuiControls
 from sandbox.interactive_plots import InteractivePlotsManager
 from sandbox.umap_eda import PlateUMAPLoader, PlateTSNELoader
 from spatial_ops.data import JacksonFischerDataset as jfd, Patient, PatientSource
-from sandbox.vae import VAEUmapLoader
+from sandbox.vae import VAEUmapLoader, VAEUmapBasel25Loader
 
 
 class OmeViewer(LayerViewerWidget):
@@ -36,7 +36,8 @@ class OmeViewer(LayerViewerWidget):
         self.vhbox.addWidget(self.inner_splitter)
         self.inner_splitter.addWidget(self.m_layer_ctrl_widget)
         # self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
-        self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=2, ome_viewer=self)
+        # self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=2, ome_viewer=self)
+        self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=3, ome_viewer=self)
         self.inner_splitter.addWidget(self.interactive_plots_manager)
 
         self.gui_controls = GuiControls()
@@ -191,7 +192,8 @@ class OmeViewer(LayerViewerWidget):
     def update_embeddings(self):
         umap_reducer, umap_results, original_data = PlateUMAPLoader(self.current_plate).load_data()
         # tsne_reducer, tsne_results, original_data = PlateTSNELoader(self.current_plate).load_data()
-        vae_umap_reducer, vae_umap_results, _ = VAEUmapLoader(self.current_plate).load_data()
+        _, vae_umap_results, _ = VAEUmapLoader(self.current_plate).load_data()
+        _, vae_umap_basel25_results, _ = VAEUmapBasel25Loader(self.current_plate).load_data()
 
         current_channel = self.gui_controls.channel_slider.value()
         a = min(original_data[:, current_channel])
@@ -206,6 +208,7 @@ class OmeViewer(LayerViewerWidget):
         self.interactive_plots_manager.interactive_plots[0].show_scatter_plot(umap_results, brushes)
         # self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(tsne_results, brushes)
         self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(vae_umap_results, brushes)
+        self.interactive_plots_manager.interactive_plots[2].show_scatter_plot(vae_umap_basel25_results, brushes)
         # dummy_data0 = umap_results + tsne_results
         # dummy_data1 = umap_results * tsne_results
         # self.interactive_plots_manager.interactive_plots[2].show_scatter_plot(dummy_data0, brushes)

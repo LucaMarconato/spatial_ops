@@ -76,23 +76,23 @@ def umap_of_list_of_patients(patients):
             i += 1
             data = np.concatenate([data, means], axis=0)
     print(data.shape)
-    # reducer = umap.UMAP(verbose=True, n_components=2, n_neighbors=30, min_dist=0)
-    # umap_results = reducer.fit_transform(data)
-    # pickle.dump((reducer, umap_results), open(temp_file, 'wb'))
-    reducer, umap_results = pickle.load(open(temp_file, 'rb'))
-    distinct_colors = max(plate_color) + 1
-    colors = np.random.randint(0, 256, distinct_colors * 3)
-    colors.shape = (distinct_colors, 3)
-    app = pg.mkQApp()
-    # pg.setConfigOption('useOpenGL', True)
-    brushes = [pg.mkBrush(colors[i]) for i in plate_color]
-    pg.plot(x=umap_results[:, 0], y=umap_results[:, 1], symbolBrush=brushes, symbol='o', pen=None)
-    app.exec_()
-    # pg.plot([0, 1], [1, 2], pen=None, symbolBrush=[pg.mkBrush((100, 100, 0)), pg.mkBrush((255, 0, 0))], symbol='s');
-    # app.exec()
-    # plt.figure()
-    # plt.scatter(umap_results[:, 0], umap_results[:, 1], c=plate_color)
-    # plt.show()
+    reducer = umap.UMAP(verbose=True, n_components=2, n_neighbors=30, min_dist=0)
+    umap_results = reducer.fit_transform(data)
+    pickle.dump((reducer, umap_results), open(temp_file, 'wb'))
+    # reducer, umap_results = pickle.load(open(temp_file, 'rb'))
+    # distinct_colors = max(plate_color) + 1
+    # colors = np.random.randint(0, 256, distinct_colors * 3)
+    # colors.shape = (distinct_colors, 3)
+    # app = pg.mkQApp()
+    # # pg.setConfigOption('useOpenGL', True)
+    # brushes = [pg.mkBrush(colors[i]) for i in plate_color]
+    # pg.plot(x=umap_results[:, 0], y=umap_results[:, 1], symbolBrush=brushes, symbol='o', pen=None)
+    # app.exec_()
+    # # pg.plot([0, 1], [1, 2], pen=None, symbolBrush=[pg.mkBrush((100, 100, 0)), pg.mkBrush((255, 0, 0))], symbol='s');
+    # # app.exec()
+    # # plt.figure()
+    # # plt.scatter(umap_results[:, 0], umap_results[:, 1], c=plate_color)
+    # # plt.show()
 
 
 def show_umap_embedding(data_points: np.ndarray, instance_ids, joblib_seed):
@@ -132,5 +132,5 @@ def show_umap_embedding(data_points: np.ndarray, instance_ids, joblib_seed):
 
 if __name__ == '__main__':
     # parallel_precompute_umap()
-    patients = [patient for patient in jfd.patients[0:100]]
+    patients = [patient for patient in jfd.patients]
     umap_of_list_of_patients(patients)

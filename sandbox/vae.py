@@ -58,6 +58,26 @@ class AutoEncoderDataset(torch.utils.data.Dataset):
         return x
 
 
+class VAEUmapBasel25Loader(PickleLazyLoader):
+    def get_resource_unique_identifier(self) -> str:
+        return 'umap_of_vae_basel25'
+
+    def precompute(self):
+        torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_basel25')
+        dataset = get_scaled_dataset()
+        model = VAE(dataset.channels_count())
+        model.load_state_dict(torch.load(torch_model_path))
+        rf = self.associated_instance.get_region_features()
+        x = dataset.move_to_torch_and_scale(rf.mean)
+        means, logvars = model.encode(x)
+        means = means.detach().numpy()
+        logvars = logvars.detach().numpy()
+        reducer = umap.UMAP(verbose=True, n_components=2)
+        umap_result = reducer.fit_transform(means)
+        data = (reducer, umap_result, means)
+        return data
+
+
 @mem.cache
 def get_scaled_dataset():
     # ehi
@@ -247,14 +267,17 @@ class VAEUmapLoader(PickleLazyLoader):
         data = (reducer, umap_result, means)
         return data
 
+
 def parallel_precompute_vae_umap_on_single_patient(patient):
     for plate in patient.plates:
         VAEUmapLoader(plate).load_data()
+
 
 def parallel_precompute_vae_umap():
     with Pool(processes=4) as pool:
         pool.map(parallel_precompute_vae_umap_on_single_patient,
                  iterable=jfd.patients[:50])
+
 
 # parallel_precompute_vae_umap()
 # os._exit(0)
@@ -308,7 +331,7 @@ if __name__ == "__main__":
 
     # torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_0.1_trick')
     # torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
-    torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_basel_25')
+    torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_basel25')
     rebuild_model = False
     rebuild_model = True
     if not os.path.isfile(torch_model_path) or rebuild_model:
@@ -327,5 +350,3 @@ if __name__ == "__main__":
     data_points, instance_ids = get_data_points()
     show_umap_embedding(data_points, instance_ids, joblib_seed=1)
 print('done')
-
-
