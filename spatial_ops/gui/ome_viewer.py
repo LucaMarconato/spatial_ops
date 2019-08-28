@@ -2,9 +2,9 @@ import sys
 
 import matplotlib.cm
 import numpy as np
-from layer_viewer import LayerViewerWidget
+from layer_viewer import LayerViewerObject
 from layer_viewer.layers import *
-from pyqtgraph.Qt import QtGui, QtCore
+from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 
 from spatial_ops.gui.gui_controls import GuiControls
 from spatial_ops.gui.interactive_plots import InteractivePlotsManager
@@ -13,38 +13,36 @@ from spatial_ops.common.data import JacksonFischerDataset as jfd, Patient, Patie
 from spatial_ops.nn.vae import VAEUmapLoader
 
 
-class OmeViewer(LayerViewerWidget):
+class OmeViewer(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('ome viewer')
+        self.layer_viewer_object = LayerViewerObject()
         self.ome_layer = None
         self.masks_layer = None
-        # on the left the layout we have, on the right the one we want to obtain
-        # |--------------|      |--------------|
-        # |              |      |        ctrl0 |
-        # | image  ctrl0 |      | image  ctrl1 |
-        # |              |      |        plot  |
-        # |--------------|      |--------------|
-        if self.gui_style != 'splitter':
-            raise Exception('can only insert the plot widget if the gui of layer viewer is using splitters')
-        self.inner_container = QtGui.QWidget()
-        self.vhbox = QtGui.QVBoxLayout()
-        self.splitter.replaceWidget(1, self.inner_container)
-        self.inner_container.setLayout(self.vhbox)
+
+        self.inner_container = QtWidgets.QWidget()
+        self.vertical_layout = QtGui.QVBoxLayout()
+        self.inner_container.setLayout(self.vertical_layout)
         self.inner_splitter = QtGui.QSplitter()
         self.inner_splitter.setOrientation(QtCore.Qt.Vertical)
-        self.vhbox.addWidget(self.inner_splitter)
-        self.inner_splitter.addWidget(self.m_layer_ctrl_widget)
+        self.vertical_layout.addWidget(self.inner_splitter)
+        self.inner_splitter.addWidget(self.layer_viewer_object.layer_ctrl_widget)
+
+        self.gui_controls = GuiControls()
+        self.inner_splitter.addWidget(self.gui_controls)
+
         self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=2, ome_viewer=self)
         # self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
         # self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=3, ome_viewer=self)
         self.inner_splitter.addWidget(self.interactive_plots_manager)
 
-        self.gui_controls = GuiControls()
-        self.inner_splitter.insertWidget(1, self.gui_controls)
-        self.inner_splitter.show()
-
-        self.balance_layout()
+        self.horizontal_layout = QtGui.QHBoxLayout()
+        self.setLayout(self.horizontal_layout)
+        self.outer_splitter = QtGui.QSplitter()
+        self.horizontal_layout.addWidget(self.outer_splitter)
+        self.outer_splitter.addWidget(self.layer_viewer_object.layer_view_widget)
+        self.outer_splitter.addWidget(self.inner_container)
 
         patients_count = len(jfd.patients)
         self.gui_controls.patient_slider.setMaximum(patients_count - 1)
@@ -72,10 +70,13 @@ class OmeViewer(LayerViewerWidget):
         def sync_back(new_channel):
             self.gui_controls.channel_slider.setValue(new_channel)
 
-        self.ome_layer.ctrl_widget().channel_selector.valueChanged.connect(sync_back)
+        self.ome_layer.ctrl_widget().channelSelector.valueChanged.connect(sync_back)
 
-        self.ome_layer.ctrl_widget().channel_selector.setValue(47)
+        self.ome_layer.ctrl_widget().channelSelector.setValue(47)
         self.load_settings()
+
+    def showEvent(self, a0: QtGui.QShowEvent) -> None:
+        self.balance_layout()
 
     def balance_layout(self):
         sizes = self.inner_splitter.sizes()
@@ -105,7 +106,7 @@ class OmeViewer(LayerViewerWidget):
             lut[not_selected_indices, 3] = 0.1
 
         self.masks_layer.lut = lut
-        self.masks_layer.update_data(self.masks_layer.m_data)
+        self.masks_layer.updateData(self.masks_layer.m_data)
 
     def load_settings(self):
         settings = QtCore.QSettings('B260', 'spatial_ops')
@@ -156,21 +157,21 @@ class OmeViewer(LayerViewerWidget):
         # update the layer viewer to show the ome of the current patient
         if self.ome_layer is None:
             self.ome_layer = MultiChannelImageLayer(name='ome', data=ome[...])
-            self.addLayer(layer=self.ome_layer)
+            self.layer_viewer_object.addLayer(layer=self.ome_layer)
         else:
-            self.ome_layer.update_data(ome)
+            self.ome_layer.updateData(ome)
 
         # update the layer viewer to show the masks of the current patient
         masks = self.current_plate.get_masks()
         if self.masks_layer is None:
             self.masks_layer = ObjectLayer(name='mask', data=masks)
-            self.add_layer(layer=self.masks_layer)
-            self.masks_layer.ctrl_widget().bar.set_fraction(0.2)
+            self.layer_viewer_object.addLayer(layer=self.masks_layer)
+            self.masks_layer.ctrl_widget().bar.setFraction(0.2)
         else:
-            self.masks_layer.update_data(masks)
+            self.masks_layer.updateData(masks)
 
     def on_channel_slider_value_changed(self, new_channel):
-        self.ome_layer.ctrl_widget().channel_selector.setValue(new_channel)
+        self.ome_layer.ctrl_widget().channelSelector.setValue(new_channel)
         self.update_channel_label()
 
     def on_channel_name_combo_box_current_index_changed(self, new_channel):
