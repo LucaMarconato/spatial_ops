@@ -148,5 +148,6 @@ class InteractivePlotsManager(pg.GraphicsLayoutWidget):
 
     def points_selected(self, points_indices, in_plot):
         self.ome_viewer.highlight_selected_cells(points_indices)
+        self.ome_viewer.highlight_selected_cells(points_indices)
         if in_plot is not None:
             self.highlight_points_in_other_plots(points_indices, excluded_plot=in_plot)

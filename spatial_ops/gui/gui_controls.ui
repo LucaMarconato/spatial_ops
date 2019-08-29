@@ -176,6 +176,12 @@
       <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
         <widget class="QGroupBox" name="embedding_view_properties_group_box">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>69</height>
+          </size>
+         </property>
          <property name="title">
           <string>Embeddings view properties</string>
          </property>
@@ -222,6 +228,29 @@
           </item>
           <item>
            <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Fixed</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="always_show_cells_check_box">
+            <property name="text">
+             <string>Always show cells</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_5">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>

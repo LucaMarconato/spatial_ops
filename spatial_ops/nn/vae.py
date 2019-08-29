@@ -53,6 +53,10 @@ class AutoEncoderDataset(torch.utils.data.Dataset):
         x = x / self.std
         return x
 
+    def inverse_scale(self, x):
+        x = x * self.std
+        x = x + self.mean
+        return x
 
 @mem.cache
 def get_standardized_dataset():
@@ -148,7 +152,7 @@ def loss_function(recon_x, x, mu, log_var):
     kld = -0.5 * beta * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     regularizator = 1
     # print(f'err = {err}, kld = {kld}, err / regularizator = {err / regularizator}')
-    loss = err / regularizator + err
+    loss = kld / regularizator + err
     number_of_cells_in_the_image = len(x)
     loss = number_of_cells_in_the_image * loss
     return loss
@@ -214,39 +218,10 @@ def get_data_points():
     return data_points, instance_ids
 
 
-class VAEUmapLoader(PickleLazyLoader):
-    def get_resource_unique_identifier(self) -> str:
-        return 'umap_of_vae'
-
-    def compute(self):
-        torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
-        dataset = get_standardized_dataset()
-        model = VAE(dataset.channels_count())
-        model.load_state_dict(torch.load(torch_model_path))
-        rf = self.associated_instance.get_region_features()
-        x = dataset.move_to_torch_and_scale(rf.mean)
-        means, log_vars = model.encode(x)
-        means = means.detach().numpy()
-        log_vars = log_vars.detach().numpy()
-        reducer = umap.UMAP(verbose=True, n_components=2)
-        umap_result = reducer.fit_transform(means)
-        data = (reducer, umap_result, means)
-        return data
-
-
-def parallel_precompute_vae_umap_on_single_patient(patient):
-    for plate in patient.plates:
-        VAEUmapLoader(plate).load_data()
-
-
-def parallel_precompute_vae_umap():
-    with Pool(processes=4) as pool:
-        pool.map(parallel_precompute_vae_umap_on_single_patient,
-                 iterable=jfd.patients)
-
-
 # parallel_precompute_vae_umap()
 # os._exit(0)
+
+torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='vae for spatial data')
@@ -293,9 +268,8 @@ if __name__ == "__main__":
     model = VAE(dataset.channels_count()).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-    torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
     rebuild_model = False
-    rebuild_model = True
+    # rebuild_model = True
     if not os.path.isfile(torch_model_path) or rebuild_model:
         for epoch in range(1, args.epochs + 1):
             train(epoch)
@@ -309,6 +283,74 @@ if __name__ == "__main__":
         else:
             kwargs = {}
         model.load_state_dict(torch.load(torch_model_path))
-    data_points, instance_ids = get_data_points()
+
+
+    # data_points, instance_ids = get_data_points()
     # show_umap_embedding(data_points, instance_ids, joblib_seed=1)
-print('done')
+
+# compute and store quantities for later use
+class VAEUmapLoader(PickleLazyLoader):
+    def get_resource_unique_identifier(self) -> str:
+        return 'umap_of_vae'
+
+    def compute(self):
+        dataset = get_standardized_dataset()
+        model = VAE(dataset.channels_count())
+        model.load_state_dict(torch.load(torch_model_path))
+        rf = self.associated_instance.get_region_features()
+        x = dataset.move_to_torch_and_scale(rf.mean)
+        means, log_vars = model.encode(x)
+        means = means.detach().numpy()
+        log_vars = log_vars.detach().numpy()
+        reducer = umap.UMAP(verbose=True, n_components=2)
+        umap_result = reducer.fit_transform(means)
+        data = (reducer, umap_result, means)
+        return data
+
+
+def parallel_precompute_vae_umap_on_single_patient(patient):
+    for plate in patient.plates:
+        VAEUmapLoader(plate).load_data()
+
+
+def parallel_precompute_vae_umap():
+    with Pool(processes=4) as pool:
+        pool.map(parallel_precompute_vae_umap_on_single_patient,
+                 iterable=jfd.patients)
+
+
+class VAEEmbeddingAndReconstructionLoader(PickleLazyLoader):
+    def get_resource_unique_identifier(self) -> str:
+        return 'vae_embedding_and_reconstruction'
+
+    def compute(self):
+        dataset = get_standardized_dataset()
+        model = VAE(dataset.channels_count())
+        model.load_state_dict(torch.load(torch_model_path))
+        rf = self.associated_instance.get_region_features()
+        x = dataset.move_to_torch_and_scale(rf.mean)
+        x_reconstructed, means, log_vars = model(x)
+        x = dataset.inverse_scale(x)
+        x = x.detach().numpy()
+        x_reconstructed = dataset.inverse_scale(x_reconstructed)
+        x_reconstructed = x_reconstructed.detach().numpy()
+        means = means.detach().numpy()
+        log_vars = log_vars.detach().numpy()
+        reducer = umap.UMAP(verbose=True, n_components=2)
+        umap_result = reducer.fit_transform(means)
+        # data = (reducer, umap_result, means, log_vars, x_reconstructed)
+        data = (x, umap_result, x_reconstructed)
+        return data
+
+
+def parallel_precompute_vae_embedding_and_reconstruction_on_single_patient(patient):
+    for plate in patient.plates:
+        VAEEmbeddingAndReconstructionLoader(plate).load_data()
+
+
+def parallel_precompute_vae_embedding_and_reconstruction():
+    with Pool(processes=4) as pool:
+        pool.map(parallel_precompute_vae_embedding_and_reconstruction_on_single_patient,
+                 iterable=jfd.patients)
+
+# parallel_precompute_vae_embedding_and_reconstruction()

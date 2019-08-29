@@ -204,7 +204,7 @@ class JacksonFischerDataset:
             elif len(value) == 0:
                 to_return[key] = 'not assigned'
             else:
-                to_return[key] = 'ambiguous: ' + ' or '.join(map(lambda x: f'"{x}"', value))
+                to_return[key] = 'ambiguous: ' + ' or '.join(map(lambda x: f'"{x}"', set(value)))
         return to_return
 
     @classmethod

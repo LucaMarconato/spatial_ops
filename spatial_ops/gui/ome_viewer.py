@@ -18,8 +18,6 @@ class OmeViewer(QtWidgets.QWidget):
         super().__init__()
         self.setWindowTitle('ome viewer')
         self.layer_viewer_object = LayerViewerObject()
-        self.ome_layer = None
-        self.masks_layer = None
 
         self.inner_container = QtWidgets.QWidget()
         self.vertical_layout = QtGui.QVBoxLayout()
@@ -32,7 +30,7 @@ class OmeViewer(QtWidgets.QWidget):
         self.gui_controls = GuiControls()
         self.inner_splitter.addWidget(self.gui_controls)
 
-        self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=2, ome_viewer=self)
+        self.interactive_plots_manager = InteractivePlotsManager(rows=2, cols=2, ome_viewer=self)
         # self.interactive_plots_manager = InteractivePlotsManager(rows=4, cols=4, ome_viewer=self)
         # self.interactive_plots_manager = InteractivePlotsManager(rows=1, cols=3, ome_viewer=self)
         self.inner_splitter.addWidget(self.interactive_plots_manager)
@@ -64,7 +62,11 @@ class OmeViewer(QtWidgets.QWidget):
         self.gui_controls.crosshair_radio_button.toggled.connect(lambda x: self.crosshair_toggled(x))
         self.gui_controls.lasso_radio_button.toggled.connect(lambda x: self.lasso_toggled(x))
         self.gui_controls.detach_embeddings_check_box.toggled.connect(lambda x: self.detach_embeddings_toggled(x))
+        self.gui_controls.always_show_cells_check_box.toggled.connect(lambda x: self.always_show_cells_toggled(x))
 
+        self.ome_layer = None
+        self.masks_layer = None
+        # calling set_patient initializes self.ome_layer and self.masks_layer
         self.set_patient(jfd.patients[20])
 
         def sync_back(new_channel):
@@ -103,20 +105,20 @@ class OmeViewer(QtWidgets.QWidget):
             lut = lut.astype('int64')
         lut[:, 3] = 255
         if len(not_selected_indices) > 0:
-            lut[not_selected_indices, 3] = 0.1
+            lut[not_selected_indices, 3] = 0
 
         self.masks_layer.lut = lut
         self.masks_layer.updateData(self.masks_layer.m_data)
 
     def load_settings(self):
-        settings = QtCore.QSettings('B260', 'spatial_ops')
+        settings = QtCore.QSettings('B260', 'spatial_ops_ome_viewer')
         patient_source = settings.value('patient_source', PatientSource(0).value, int)
         patient_pid = settings.value('patient_pid', 1, int)
         self.gui_controls.patient_source_combo_box.setCurrentIndex(patient_source)
         self.gui_controls.patient_pid_spin_box.setValue(patient_pid)
 
     def save_settings(self):
-        settings = QtCore.QSettings('B260', 'spatial_ops')
+        settings = QtCore.QSettings('B260', 'spatial_ops_ome_viewer')
         settings.setValue('patient_source', self.current_patient.source.value)
         settings.setValue('patient_pid', self.current_patient.pid)
 
@@ -170,9 +172,12 @@ class OmeViewer(QtWidgets.QWidget):
         else:
             self.masks_layer.updateData(masks)
 
+        self.highlight_selected_cells([])
+
     def on_channel_slider_value_changed(self, new_channel):
         self.ome_layer.ctrl_widget().channelSelector.setValue(new_channel)
         self.update_channel_label()
+        self.highlight_selected_cells([])
 
     def on_channel_name_combo_box_current_index_changed(self, new_channel):
         self.gui_controls.channel_slider.setValue(new_channel)
@@ -212,6 +217,11 @@ class OmeViewer(QtWidgets.QWidget):
         for interactive_plot in self.interactive_plots_manager.interactive_plots:
             interactive_plot.lasso_manager.set_enabled(state)
 
+    def always_show_cells_toggled(self, state):
+        self.interactive_plots_manager.clear_lassos()
+        self.interactive_plots_manager.clear_crosshairs()
+        self.highlight_selected_cells([])
+
     def detach_embeddings_toggled(self, state):
         class DetachedEmbeddingsWindow(QtGui.QWidget):
             def __init__(self, ome_viewer, parent=None):
@@ -224,6 +234,7 @@ class OmeViewer(QtWidgets.QWidget):
                 self.ome_viewer.inner_splitter.addWidget(self.ome_viewer.interactive_plots_manager)
                 self.ome_viewer.balance_layout()
                 self.ome_viewer.gui_controls.detach_embeddings_check_box.setChecked(False)
+
                 event.accept()
 
         if state:
