@@ -166,7 +166,7 @@ class OmeViewer(QtWidgets.QWidget):
         if self.masks_layer is None:
             self.masks_layer = ObjectLayer(name='mask', data=masks)
             self.layer_viewer_object.addLayer(layer=self.masks_layer)
-            self.masks_layer.ctrl_widget().bar.setFraction(0.2)
+            self.masks_layer.setOpacity(0.2)
         else:
             self.masks_layer.updateData(masks)
 
