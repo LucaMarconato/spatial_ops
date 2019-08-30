@@ -176,15 +176,21 @@ class JacksonFischerDataset:
                 i = 0
                 bar.update(0)
                 for pid in basel_patient_ids:
-                    patient = Patient(PatientSource.basel, pid)
-                    cls.patients.append(patient)
-                    i += 1
-                    bar.update(i)
+                    try:
+                        patient = Patient(PatientSource.basel, pid)
+                        cls.patients.append(patient)
+                        i += 1
+                        bar.update(i)
+                    except FileNotFoundError:
+                        pass
                 for pid in zurich_patient_ids:
-                    patient = Patient(PatientSource.zurich, pid)
-                    cls.patients.append(patient)
-                    i += 1
-                    bar.update(i)
+                    try:
+                        patient = Patient(PatientSource.zurich, pid)
+                        cls.patients.append(patient)
+                        i += 1
+                        bar.update(i)
+                    except FileNotFoundError:
+                        pass
             pickle.dump(cls.patients, open(pickle_path, 'wb'))
 
     @classmethod
