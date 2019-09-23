@@ -9,7 +9,7 @@ from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 from spatial_ops.gui.gui_controls import GuiControls
 from spatial_ops.gui.interactive_plots import InteractivePlotsManager
 from spatial_ops.eda.umap_eda import PlateUMAPLoader
-from spatial_ops.common.data import JacksonFischerDataset as jfd, Patient, PatientSource
+from spatial_ops.common.data import JacksonFischerDataset as jfd, Plate, PatientSource
 from spatial_ops.nn.vae import VAEEmbeddingAndReconstructionLoader
 
 
@@ -66,19 +66,20 @@ class VaeViewer(QtWidgets.QWidget):
 
         # connect widgets
         patients_count = len(jfd.patients)
-        self.gui_controls.patient_slider.setMaximum(patients_count - 1)
+        plates_count = len(jfd.plates)
+
+        self.gui_controls.in_dataset_index_label.setText(f'len={plates_count - 1}')
         channels_annotation = jfd.get_channels_annotation()
         channels_count = len(channels_annotation)
-        self.gui_controls.channel_slider.setMaximum(channels_count - 1)
         for k, v in channels_annotation.items():
             self.gui_controls.channel_name_combo_box.addItem(v)
 
-        self.gui_controls.patient_slider.valueChanged.connect(lambda x: self.on_patient_slider_value_changed(x))
-        self.gui_controls.channel_slider.valueChanged.connect(lambda x: self.on_channel_slider_value_changed(x))
-        self.gui_controls.patient_source_combo_box.currentIndexChanged.connect(
-            lambda x: self.on_patient_source_combo_box_current_index_changed(x))
-        self.gui_controls.patient_pid_spin_box.valueChanged.connect(
-            lambda x: self.on_patient_pid_spin_box_value_changed(x))
+        self.gui_controls.in_dataset_index_spin_box.valueChanged.connect(
+            lambda x: self.on_in_dataset_index_spin_box_value_changed(x))
+        # self.gui_controls.patient_source_combo_box.currentIndexChanged.connect(
+        #     lambda x: self.on_patient_source_combo_box_current_index_changed(x))
+        # self.gui_controls.patient_pid_spin_box.valueChanged.connect(
+        #     lambda x: self.on_patient_pid_spin_box_value_changed(x))
         self.gui_controls.channel_name_combo_box.currentIndexChanged.connect(
             lambda x: self.on_channel_name_combo_box_current_index_changed(x)
         )
@@ -92,10 +93,10 @@ class VaeViewer(QtWidgets.QWidget):
         self.masks_layer_left = None
         self.masks_layer_right = None
         # calling set_patient initializes the four above variables
-        self.set_patient(jfd.patients[20])
+        self.set_patient(jfd.plates[20])
 
         def sync_back(new_channel):
-            self.gui_controls.channel_slider.setValue(new_channel)
+            self.gui_controls.channel_name_combo_box.setCurrentIndex(new_channel)
 
         self.ome_layer_left.ctrl_widget().channelSelector.valueChanged.connect(sync_back)
         self.ome_layer_right.ctrl_widget().channelSelector.valueChanged.connect(sync_back)
@@ -174,10 +175,13 @@ class VaeViewer(QtWidgets.QWidget):
         j = self.gui_controls.patient_source_combo_box.currentIndex()
         patient_source = PatientSource(j)
         i = jfd.get_patient_index_by_source_and_pid(patient_source, new_value)
-        self.gui_controls.patient_slider.setValue(i)
+        self.gui_controls.in_dataset_index_spin_box.setValue(i)
 
-    def on_patient_slider_value_changed(self, patient_index: int):
-        self.current_patient = jfd.patients[patient_index]
+    def on_in_dataset_index_spin_box_value_changed(self, plate_index: int):
+        self.current_plate = jfd.plates[plate_index]
+        self.current_patient = self.current_plate.patient
+        self.gui_controls.filename_label.setText(os.path.basename(self.current_plate.ome_path))
+        self.gui_controls.plate_label.setText(f'len={len(jfd.plates)}')
         # when changing the value of the combobox (possible values basel either zurich),
         # then self.current_patient.pid will change so we then adjust the value of slider which controls the PID
         new_pid = self.current_patient.pid
@@ -190,7 +194,6 @@ class VaeViewer(QtWidgets.QWidget):
         self.gui_controls.patient_pid_spin_box.setMaximum(jfd.patient_count_by_source(self.current_patient.source))
         self.gui_controls.patient_pid_spin_box.setValue(new_pid)
 
-        self.current_plate = self.current_patient.plates[0]
         ome = self.current_plate.get_ome()
         self.interactive_plots_manager.clear_plots()
         self.update_embeddings_and_cells()
@@ -225,21 +228,14 @@ class VaeViewer(QtWidgets.QWidget):
             self.masks_layer_right.updateData(masks)
         self.highlight_selected_cells([])
 
-    def on_channel_slider_value_changed(self, new_channel):
+    def on_channel_name_combo_box_current_index_changed(self, new_channel):
         self.ome_layer_left.ctrl_widget().channelSelector.setValue(new_channel)
-        self.update_channel_label()
+        self.update_embeddings_and_cells()
         self.highlight_selected_cells([])
 
-    def on_channel_name_combo_box_current_index_changed(self, new_channel):
-        self.gui_controls.channel_slider.setValue(new_channel)
-
-    def set_patient(self, patient: Patient):
-        index_in_list = jfd.patients.index(patient)
-        self.gui_controls.patient_slider.setValue(index_in_list)
-
-    def update_channel_label(self):
-        self.gui_controls.channel_name_combo_box.setCurrentIndex(self.gui_controls.channel_slider.value())
-        self.update_embeddings_and_cells()
+    def set_patient(self, plate: Plate):
+        index_in_list = jfd.plates.index(plate)
+        self.gui_controls.in_dataset_index_spin_box.setValue(index_in_list)
 
     def color_for_data(self, data, a=None, b=None):
         if a is None:
@@ -255,8 +251,9 @@ class VaeViewer(QtWidgets.QWidget):
     def update_embeddings_and_cells(self):
         _, umap_results, _ = PlateUMAPLoader(self.current_plate).load_data()
         original_data, vae_umap_results, reconstructed_data = VAEEmbeddingAndReconstructionLoader(
-            self.current_plate).load_data()
-        current_channel = self.gui_controls.channel_slider.value()
+            # self.current_plate, 'vae_torch.model_very_small_beta').load_data()
+            self.current_plate, 'vae_torch.model_experimental').load_data()
+        current_channel = self.gui_controls.channel_name_combo_box.currentIndex()
         x = original_data[:, current_channel]
         reconstructed_x = reconstructed_data[:, current_channel]
         a = min(min(x), min(reconstructed_x))
@@ -268,7 +265,7 @@ class VaeViewer(QtWidgets.QWidget):
         brushes_left = [QtGui.QBrush(QtGui.QColor(*color_for_points_left[i, :].tolist())) for i in
                         range(color_for_points_left.shape[0])]
         brushes_right = [QtGui.QBrush(QtGui.QColor(*color_for_points_right[i, :].tolist())) for i in
-                        range(color_for_points_right.shape[0])]
+                         range(color_for_points_right.shape[0])]
 
         self.interactive_plots_manager.interactive_plots[0].show_scatter_plot(umap_results, brushes_left)
         self.interactive_plots_manager.interactive_plots[1].show_scatter_plot(umap_results, brushes_right)

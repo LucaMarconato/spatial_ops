@@ -179,19 +179,20 @@ class JacksonFischerDataset:
                     try:
                         patient = Patient(PatientSource.basel, pid)
                         cls.patients.append(patient)
-                        i += 1
-                        bar.update(i)
                     except FileNotFoundError:
                         pass
+                    i += 1
+                    bar.update(i)
                 for pid in zurich_patient_ids:
                     try:
                         patient = Patient(PatientSource.zurich, pid)
                         cls.patients.append(patient)
-                        i += 1
-                        bar.update(i)
                     except FileNotFoundError:
                         pass
+                    i += 1
+                    bar.update(i)
             pickle.dump(cls.patients, open(pickle_path, 'wb'))
+        cls.unfold_plates()
 
     @classmethod
     def get_channels_annotation(cls) -> Dict[int, str]:
@@ -231,6 +232,13 @@ class JacksonFischerDataset:
     @classmethod
     def patient_count_by_source(cls, source: PatientSource):
         return len([0 for patient in cls.patients if patient.source == source])
+
+    @classmethod
+    def unfold_plates(cls):
+        cls.plates = []
+        for patient in cls.patients:
+            for plate in patient.plates:
+                cls.plates.append(plate)
 
 
 if __name__ == '__main__':

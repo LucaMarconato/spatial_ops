@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from spatial_ops.common.folders import get_pickle_lazy_loader_data_path
 from spatial_ops.common.unpickler import CustomUnpickler
+import click
 
 
 class LazyLoaderAssociatedInstance:
@@ -94,23 +95,46 @@ class PickleLazyLoader(LazyLoader, ABC):
         pickle.dump(data, open(self.get_pickle_path(), 'wb'))
 
 
+@click.command()
+@click.option('--key', type=str, help='substring to be found in cache file to be deleted')
+def clear_cache(key):
+    cache_folder = get_pickle_lazy_loader_data_path()
+    to_delete = []
+    for dir_path, dir_names, filenames in os.walk(cache_folder):
+        for filename in [f for f in filenames if key in f]:
+            path = os.path.join(dir_path, filename)
+            to_delete.append(path)
+            print(path)
+    for a in to_delete:
+        print(a)
+        os.remove(a)
+
+
+@click.group()
+def cli():
+    pass
+
+
+cli.add_command(clear_cache)
+
 if __name__ == '__main__':
-    from spatial_ops.common.data import JacksonFischerDataset as jfd
-    from spatial_ops.common.data import Patient
-
-    patient = jfd.patients[15]
-
-
-    class NumberOfPlatesLoader0(PickleLazyLoader):
-        def get_resource_unique_identifier(self) -> str:
-            return 'example_quantity_pickle'
-
-        def precompute(self):
-            # just to enable the autocompletion within the ide
-            p: Patient = self.associated_instance
-            data = f'len = {len(p.plates)}'
-            return data
-
-
-    derived_quantity = NumberOfPlatesLoader0(patient)
-    print(derived_quantity.load_data())
+    cli()
+#     from spatial_ops.common.data import JacksonFischerDataset as jfd
+#     from spatial_ops.common.data import Patient
+#
+#     patient = jfd.patients[15]
+#
+#
+#     class NumberOfPlatesLoader0(PickleLazyLoader):
+#         def get_resource_unique_identifier(self) -> str:
+#             return 'example_quantity_pickle'
+#
+#         def precompute(self):
+#             # just to enable the autocompletion within the ide
+#             p: Patient = self.associated_instance
+#             data = f'len = {len(p.plates)}'
+#             return data
+#
+#
+#     derived_quantity = NumberOfPlatesLoader0(patient)
+#     print(derived_quantity.load_data())

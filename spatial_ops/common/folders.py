@@ -13,7 +13,8 @@ def get_data_folder() -> str:
     paths = {'luca': os.path.join(user_path, 'Downloads/JacksonFischer_Collaborators'),
              'thorsten': '/media/throsten/Data/embl/',
              'odcf': '/icgc/dkfzlsdf/analysis/B260/projects/spatial_zurich/data',
-             'ebi': '/nfs/research1/stegle/datasets/spatial_zurich/data/'}
+             'ebi': '/nfs/research1/stegle/datasets/spatial_zurich/data/',
+             'dkfz_gpu': '/data/l989o/spatial_zurich/data/'}
 
     found = 0
     current_machine = ''

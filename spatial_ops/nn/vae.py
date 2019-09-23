@@ -23,9 +23,10 @@ from spatial_ops.common.lazy_loader import PickleLazyLoader
 
 
 class AutoEncoderDataset(torch.utils.data.Dataset):
-    def __init__(self, mean=None, std=None):
+    def __init__(self, mean=None, std=None, maximum=None):
         self.mean = mean
         self.std = std
+        self.maximum = maximum
         self.plates: List[Plate] = []
         for patient in jfd.patients:
             self.plates.extend(patient.plates)
@@ -36,12 +37,17 @@ class AutoEncoderDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, item):
         data = self.plates[item].get_region_features().mean
+        data = data[1:]
         # x = torch.from_numpy(data[:, self.biologically_relevant_channels]).float()
         x = torch.from_numpy(data).float()
+        # if self.mean is None and self.std is None:
+        #     return (x + 0.0001).log()
         if self.mean is not None:
             x = x - self.mean
         if self.std is not None:
             x = x / self.std
+        if self.maximum is not None:
+            x = x / self.maximum
         return x
 
     def channels_count(self):
@@ -49,27 +55,51 @@ class AutoEncoderDataset(torch.utils.data.Dataset):
 
     def move_to_torch_and_scale(self, data):
         x = torch.from_numpy(data).float()
-        x = x - self.mean
-        x = x / self.std
+        if self.mean is not None:
+            x = x - self.mean
+        if self.std is not None:
+            x = x / self.std
+        if self.maximum is not None:
+            x = x / self.maximum
         return x
 
     def inverse_scale(self, x):
-        x = x * self.std
-        x = x + self.mean
+        if self.mean is not None:
+            x = x * self.std
+        if self.std is not None:
+            x = x + self.mean
+        if self.maximum is not None:
+            x = x * self.maximum
         return x
 
-@mem.cache
+
+# @mem.cache
 def get_standardized_dataset():
     dataset = AutoEncoderDataset()
-    scaler = StandardScaler(copy=True, with_mean=True, with_std=True)
-    for data in dataset:
-        scaler.partial_fit(data)
+    # m = torch.zeros((1, dataset[0].shape[1]))
+    # scaler = StandardScaler(copy=True, with_mean=True, with_std=True)
+    # for data in dataset:
+    #     scaler.partial_fit(data)
+    #     # m = torch.max(m, data.max(dim=0).values)
+    #
+    # mean = torch.from_numpy(scaler.mean_, ).float()
+    # mean = mean.view(-1, len(mean))
+    # std = torch.from_numpy(scaler.var_ ** 0.5).float()
+    # std = std.view(-1, len(std))
+    to_concat = []
 
-    mean = torch.from_numpy(scaler.mean_, ).float()
-    mean = mean.view(-1, len(mean))
-    std = torch.from_numpy(scaler.var_ ** 0.5).float()
-    std = std.view(-1, len(std))
+    for patient in jfd.patients:
+        for plate in patient.plates:
+            rf = plate.get_region_features()
+            to_concat.append(rf.mean)
+
+    x = np.concatenate(to_concat, axis=0)
+    q = np.quantile(x, q=0.68, axis=0)
+    mean = torch.tensor(0)
+    std = torch.from_numpy(q)
+    std = std.float()
     dataset = AutoEncoderDataset(mean=mean, std=std)
+    # dataset = AutoEncoderDataset(maximum=m)
     return dataset
 
 
@@ -95,16 +125,16 @@ class VAE(nn.Module):
     def __init__(self, features_count):
         super(VAE, self).__init__()
         self.features_count = features_count
-        self.hidden_layer_dimensions = 5
-        self.encoder0 = nn.Linear(self.features_count, 20)
-        self.encoder1 = nn.Linear(20, 15)
-        self.encoder2 = nn.Linear(15, 10)
-        self.encoder3_mean = nn.Linear(10, self.hidden_layer_dimensions)
-        self.encoder3_log_var = nn.Linear(10, self.hidden_layer_dimensions)
-        self.decoder0 = nn.Linear(self.hidden_layer_dimensions, 10)
-        self.decoder1 = nn.Linear(10, 15)
-        self.decoder2 = nn.Linear(15, 20)
-        self.decoder3 = nn.Linear(20, self.features_count)
+        self.hidden_layer_dimensions = 10
+        self.encoder0 = nn.Linear(self.features_count, 30)
+        self.encoder1 = nn.Linear(30, 20)
+        self.encoder2 = nn.Linear(20, 15)
+        self.encoder3_mean = nn.Linear(15, self.hidden_layer_dimensions)
+        self.encoder3_log_var = nn.Linear(15, self.hidden_layer_dimensions)
+        self.decoder0 = nn.Linear(self.hidden_layer_dimensions, 15)
+        self.decoder1 = nn.Linear(15, 20)
+        self.decoder2 = nn.Linear(20, 30)
+        self.decoder3 = nn.Linear(30, self.features_count)
 
     def encode(self, x):
         # print(x.shape)
@@ -143,17 +173,22 @@ class VAE(nn.Module):
 def loss_function(recon_x, x, mu, log_var):
     x = x.view(-1, dataset.channels_count())
     err = torch.norm(recon_x - x).mean()
+    # err = torch.max(recon_x - x)
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
     # https://arxiv.org/abs/1312.6114
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     beta = 0.000001
+    # beta = 1000
+    # beta = 0.001
     # beta = 1
     kld = -0.5 * beta * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
-    regularizator = 1
+    # kld = kld / model.hidden_layer_dimensions
     # print(f'err = {err}, kld = {kld}, err / regularizator = {err / regularizator}')
-    loss = kld / regularizator + err
-    number_of_cells_in_the_image = len(x)
+    number_of_cells_in_the_image = len(x) / 500
+    # print(f'kld / err = {kld / err}')
+    loss = kld + err
+    # loss = err
     loss = number_of_cells_in_the_image * loss
     return loss
 
@@ -221,7 +256,9 @@ def get_data_points():
 # parallel_precompute_vae_umap()
 # os._exit(0)
 
-torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
+torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_experimental')
+# torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_very_small_beta')
+# torch_model_path = os.path.join(get_processed_data_folder(), 'vae_torch.model_small_beta')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='vae for spatial data')
@@ -232,6 +269,7 @@ if __name__ == "__main__":
                         help='how many batches to wait before logging training status')
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
+    # use_cuda = False
 
     if torch.cuda.is_available():
         print('cuda available')
@@ -259,7 +297,7 @@ if __name__ == "__main__":
     validation_sampler = torch.utils.data.SubsetRandomSampler(validation_indices)
 
     batch_size = 1
-    kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+    kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
     training_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
                                                   sampler=training_sampler, **kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
@@ -269,7 +307,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     rebuild_model = False
-    # rebuild_model = True
+    rebuild_model = True
     if not os.path.isfile(torch_model_path) or rebuild_model:
         for epoch in range(1, args.epochs + 1):
             train(epoch)
@@ -284,49 +322,23 @@ if __name__ == "__main__":
             kwargs = {}
         model.load_state_dict(torch.load(torch_model_path))
 
-
     # data_points, instance_ids = get_data_points()
     # show_umap_embedding(data_points, instance_ids, joblib_seed=1)
 
-# compute and store quantities for later use
-class VAEUmapLoader(PickleLazyLoader):
-    def get_resource_unique_identifier(self) -> str:
-        return 'umap_of_vae'
-
-    def compute(self):
-        dataset = get_standardized_dataset()
-        model = VAE(dataset.channels_count())
-        model.load_state_dict(torch.load(torch_model_path))
-        rf = self.associated_instance.get_region_features()
-        x = dataset.move_to_torch_and_scale(rf.mean)
-        means, log_vars = model.encode(x)
-        means = means.detach().numpy()
-        log_vars = log_vars.detach().numpy()
-        reducer = umap.UMAP(verbose=True, n_components=2)
-        umap_result = reducer.fit_transform(means)
-        data = (reducer, umap_result, means)
-        return data
-
-
-def parallel_precompute_vae_umap_on_single_patient(patient):
-    for plate in patient.plates:
-        VAEUmapLoader(plate).load_data()
-
-
-def parallel_precompute_vae_umap():
-    with Pool(processes=4) as pool:
-        pool.map(parallel_precompute_vae_umap_on_single_patient,
-                 iterable=jfd.patients)
-
 
 class VAEEmbeddingAndReconstructionLoader(PickleLazyLoader):
+    from spatial_ops.common.lazy_loader import LazyLoaderAssociatedInstance
+    def __init__(self, associated_instance: LazyLoaderAssociatedInstance, model_filename: str):
+        super().__init__(associated_instance)
+        self.torch_model_path = os.path.join(get_processed_data_folder(), model_filename)
+
     def get_resource_unique_identifier(self) -> str:
-        return 'vae_embedding_and_reconstruction'
+        return 'vae_embedding_and_reconstruction' + os.path.basename(self.torch_model_path)
 
     def compute(self):
         dataset = get_standardized_dataset()
         model = VAE(dataset.channels_count())
-        model.load_state_dict(torch.load(torch_model_path))
+        model.load_state_dict(torch.load(self.torch_model_path))
         rf = self.associated_instance.get_region_features()
         x = dataset.move_to_torch_and_scale(rf.mean)
         x_reconstructed, means, log_vars = model(x)
@@ -339,13 +351,15 @@ class VAEEmbeddingAndReconstructionLoader(PickleLazyLoader):
         reducer = umap.UMAP(verbose=True, n_components=2)
         umap_result = reducer.fit_transform(means)
         # data = (reducer, umap_result, means, log_vars, x_reconstructed)
+        # x = np.concatenate([np.zeros((1, x.shape[1])), x], axis=0)
+        # x_reconstructed = np.concatenate([np.zeros((1, x_reconstructed.shape[1])), x_reconstructed], axis=0)
         data = (x, umap_result, x_reconstructed)
         return data
 
 
 def parallel_precompute_vae_embedding_and_reconstruction_on_single_patient(patient):
     for plate in patient.plates:
-        VAEEmbeddingAndReconstructionLoader(plate).load_data()
+        VAEEmbeddingAndReconstructionLoader(plate, 'vae_torch.model').load_data()
 
 
 def parallel_precompute_vae_embedding_and_reconstruction():
