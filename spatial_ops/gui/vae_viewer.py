@@ -12,6 +12,7 @@ from spatial_ops.eda.umap_eda import PlateUMAPLoader
 from spatial_ops.common.data import JacksonFischerDataset as jfd, Plate, PatientSource
 from spatial_ops.nn.vae import VAEEmbeddingAndReconstructionLoader
 
+# there is a bug with QSpinBox: https://bugreports.qt.io/browse/QTBUG-14259
 
 class VaeViewer(QtWidgets.QWidget):
     def __init__(self):
@@ -68,7 +69,8 @@ class VaeViewer(QtWidgets.QWidget):
         patients_count = len(jfd.patients)
         plates_count = len(jfd.plates)
 
-        self.gui_controls.in_dataset_index_label.setText(f'len={plates_count - 1}')
+        self.gui_controls.in_dataset_index_label.setText(f'/{plates_count - 1}')
+        self.gui_controls.in_dataset_index_spin_box.setMaximum(plates_count - 1)
         channels_annotation = jfd.get_channels_annotation()
         channels_count = len(channels_annotation)
         for k, v in channels_annotation.items():
@@ -152,47 +154,27 @@ class VaeViewer(QtWidgets.QWidget):
 
     def load_settings(self):
         settings = QtCore.QSettings('B260', 'spatial_ops_vae_viewer')
-        patient_source = settings.value('patient_source', PatientSource(0).value, int)
-        patient_pid = settings.value('patient_pid', 1, int)
-        self.gui_controls.patient_source_combo_box.setCurrentIndex(patient_source)
-        self.gui_controls.patient_pid_spin_box.setValue(patient_pid)
+        in_dataset_index = settings.value('in_dataset_index', 0, int)
+        channel = settings.value('channel', 28, int)
+        self.on_in_dataset_index_spin_box_value_changed(in_dataset_index)
+        self.gui_controls.channel_name_combo_box.setCurrentIndex(channel)
 
     def save_settings(self):
         settings = QtCore.QSettings('B260', 'spatial_ops_vae_viewer')
-        settings.setValue('patient_source', self.current_patient.source.value)
-        settings.setValue('patient_pid', self.current_patient.pid)
+        settings.setValue('in_dataset_index', jfd.plates.index(self.current_plate))
+        settings.setValue('channel', self.gui_controls.channel_name_combo_box.currentIndex())
 
     def closeEvent(self, event):
         self.save_settings()
         event.accept()
 
-    def on_patient_source_combo_box_current_index_changed(self, new_value: int):
-        patient_source = PatientSource(new_value)
-        i = jfd.get_patient_index_by_source_and_pid(patient_source, 1)
-        self.gui_controls.patient_slider.setValue(i)
-
-    def on_patient_pid_spin_box_value_changed(self, new_value: int):
-        j = self.gui_controls.patient_source_combo_box.currentIndex()
-        patient_source = PatientSource(j)
-        i = jfd.get_patient_index_by_source_and_pid(patient_source, new_value)
-        self.gui_controls.in_dataset_index_spin_box.setValue(i)
-
-    def on_in_dataset_index_spin_box_value_changed(self, plate_index: int):
-        self.current_plate = jfd.plates[plate_index]
+    def on_in_dataset_index_spin_box_value_changed(self, in_dataset_index: int):
+        self.current_plate = jfd.plates[in_dataset_index]
         self.current_patient = self.current_plate.patient
         self.gui_controls.filename_label.setText(os.path.basename(self.current_plate.ome_path))
-        self.gui_controls.plate_label.setText(f'len={len(jfd.plates)}')
-        # when changing the value of the combobox (possible values basel either zurich),
-        # then self.current_patient.pid will change so we then adjust the value of slider which controls the PID
-        new_pid = self.current_patient.pid
-        if self.current_patient.source == PatientSource.basel:
-            self.gui_controls.patient_source_combo_box.setCurrentIndex(0)
-        elif self.current_patient.source == PatientSource.zurich:
-            self.gui_controls.patient_source_combo_box.setCurrentIndex(1)
-        else:
-            raise ValueError(f'self.current_patient_source = {self.current_patient.source}')
-        self.gui_controls.patient_pid_spin_box.setMaximum(jfd.patient_count_by_source(self.current_patient.source))
-        self.gui_controls.patient_pid_spin_box.setValue(new_pid)
+        plate_in_patient_index = self.current_patient.plates.index(self.current_plate)
+        s = f'plate {plate_in_patient_index}/{len(self.current_patient.plates) - 1}'
+        self.gui_controls.id_info_label.setText(s)
 
         ome = self.current_plate.get_ome()
         self.interactive_plots_manager.clear_plots()

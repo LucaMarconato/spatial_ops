@@ -307,7 +307,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     rebuild_model = False
-    rebuild_model = True
+    # rebuild_model = True
     if not os.path.isfile(torch_model_path) or rebuild_model:
         for epoch in range(1, args.epochs + 1):
             train(epoch)
@@ -359,7 +359,7 @@ class VAEEmbeddingAndReconstructionLoader(PickleLazyLoader):
 
 def parallel_precompute_vae_embedding_and_reconstruction_on_single_patient(patient):
     for plate in patient.plates:
-        VAEEmbeddingAndReconstructionLoader(plate, 'vae_torch.model').load_data()
+        VAEEmbeddingAndReconstructionLoader(plate, 'vae_torch.model_experimental').load_data()
 
 
 def parallel_precompute_vae_embedding_and_reconstruction():

@@ -23,14 +23,7 @@
    <item>
     <layout class="QVBoxLayout" name="outer_layout">
      <item>
-      <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0" columnminimumwidth="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0">
-       <item row="2" column="13">
-        <widget class="QSpinBox" name="plate_spin_box">
-         <property name="keyboardTracking">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
+      <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,0,0,0,0,0,0,0,0,0,0">
        <item row="4" column="0">
         <widget class="QLabel" name="label_5">
          <property name="text">
@@ -52,95 +45,24 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="11">
-        <spacer name="horizontalSpacer_6">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="2" column="9">
-        <widget class="QSpinBox" name="patient_pid_spin_box">
-         <property name="keyboardTracking">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="8">
-        <widget class="QLabel" name="label_2">
-         <property name="text">
-          <string>PID:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="12">
-        <widget class="QLabel" name="label_3">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="text">
-          <string>Plate:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="6">
-        <widget class="QComboBox" name="patient_source_combo_box">
-         <property name="focusPolicy">
-          <enum>Qt::ClickFocus</enum>
-         </property>
-         <property name="currentText">
-          <string notr="true"/>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="7">
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="2" column="5">
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>Patient source:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="16">
         <widget class="QLabel" name="filename_label">
          <property name="text">
           <string>filename</string>
          </property>
-        </widget>
-       </item>
-       <item row="2" column="10">
-        <widget class="QLabel" name="patient_pid_label">
-         <property name="text">
-          <string>/ xxx</string>
+         <property name="textInteractionFlags">
+          <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
          </property>
         </widget>
        </item>
-       <item row="2" column="14">
-        <widget class="QLabel" name="plate_label">
+       <item row="2" column="5">
+        <widget class="QLabel" name="id_info_label">
          <property name="text">
-          <string>/ xxx</string>
+          <string>id info</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="1" colspan="16">
+       <item row="4" column="1" colspan="7">
         <widget class="QComboBox" name="channel_name_combo_box">
          <property name="focusPolicy">
           <enum>Qt::ClickFocus</enum>
@@ -150,8 +72,21 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="15">
+       <item row="2" column="6">
         <spacer name="horizontalSpacer_8">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="2" column="4">
+        <spacer name="horizontalSpacer_7">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
@@ -166,22 +101,9 @@
        <item row="2" column="3">
         <widget class="QLabel" name="in_dataset_index_label">
          <property name="text">
-          <string>/ xxx</string>
+          <string>len=xxx</string>
          </property>
         </widget>
-       </item>
-       <item row="2" column="4">
-        <spacer name="horizontalSpacer_7">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
        </item>
       </layout>
      </item>
