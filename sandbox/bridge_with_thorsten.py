@@ -1,5 +1,6 @@
 import umap
 import os
+import h5py
 
 from spatial_ops.common.data import JacksonFischerDataset as jfd, Plate
 from spatial_ops.common.lazy_loader import PickleLazyLoader
@@ -18,7 +19,6 @@ predictions_folder = '/data/l989o/deployed/spatial_thorsten/out'
 h5_files = os.listdir(predictions_folder)
 
 class ThorstenPredictionsLoader(PickleLazyLoader):
-
     def get_resource_unique_identifier(self) -> str:
         return 'thorsten_predictions'
 
@@ -26,10 +26,12 @@ class ThorstenPredictionsLoader(PickleLazyLoader):
         from spatial_ops.common.data import Plate
         plate: Plate = self.associated_instance
         ome_path = plate.ome_path
-        associated_h5_file = os.path.basename(ome_path).replace('.h5', '')
-        if associated_h5_file in h5_files:
-            print('found')
+        associated_h5_file = os.path.basename(ome_path) + '.h5'
+        if associated_h5_file in [os.path.basename(f) for f in h5_files]:
+            with h5py.File(os.path.join(predictions_folder, associated_h5_file), 'r') as f5:
+                vae_embedding = f5['vae_embedding'][...]
         else:
+            print(f'associated_h5_file = {associated_h5_file}')
             print('not found')
         # dataset = get_standardized_dataset()
         # model = VAE(dataset.channels_count())
@@ -63,3 +65,8 @@ def parallel_precompute_thorsten_predictions():
                  iterable=jfd.patients)
 
 # parallel_precompute_thorsten_predictions()
+
+if __name__ == '__main__':
+    plate = jfd.plates[0]
+    ThorstenPredictionsLoader(plate).load_data(store_precomputation_on_disk=False)
+

@@ -10,7 +10,6 @@ from spatial_ops.gui.gui_controls import GuiControls
 from spatial_ops.gui.interactive_plots import InteractivePlotsManager
 from spatial_ops.eda.umap_eda import PlateUMAPLoader
 from spatial_ops.common.data import JacksonFischerDataset as jfd, Plate, PatientSource
-from spatial_ops.nn.vae import VAEEmbeddingAndReconstructionLoader
 
 # there is a bug with QSpinBox: https://bugreports.qt.io/browse/QTBUG-14259
 
@@ -232,9 +231,15 @@ class VaeViewer(QtWidgets.QWidget):
 
     def update_embeddings_and_cells(self):
         _, umap_results, _ = PlateUMAPLoader(self.current_plate).load_data()
-        original_data, vae_umap_results, reconstructed_data = VAEEmbeddingAndReconstructionLoader(
-            # self.current_plate, 'vae_torch.model_very_small_beta').load_data()
-            self.current_plate, 'vae_torch.model_experimental').load_data()
+
+        # from spatial_ops.nn.vae import VAEEmbeddingAndReconstructionLoader
+        # original_data, vae_umap_results, reconstructed_data = VAEEmbeddingAndReconstructionLoader(
+        #     # self.current_plate, 'vae_torch.model_very_small_beta').load_data()
+        #     self.current_plate, 'vae_torch.model_experimental').load_data()
+
+        from sandbox.bridge_with_thorsten import ThorstenPredictionsLoader
+        original_data, umap, reconstructed_data = ThorstenPredictionsLoader(self.current_plate).load_data()
+
         current_channel = self.gui_controls.channel_name_combo_box.currentIndex()
         x = original_data[:, current_channel]
         reconstructed_x = reconstructed_data[:, current_channel]
